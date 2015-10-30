@@ -9,16 +9,6 @@ function getMiddleware(brokerName, akeraWebInstance) {
 		mergeParams: true
 	});
 
-	router.get('/', function(req, res) {
-		var brkName = req.params.broker || brokerName;
-
-		var templateFn = require('jade').compileFile(require.resolve('../www/index.jade'));
-		res.status(200).send(templateFn({
-			broker: brkName
-		}));
-
-	});
-
 	router.get('/crud/meta', function(req, res) {
 		var brkName = req.params.broker || brokerName;
 		var broker = akeraWebInstance.getBroker(brkName);
