@@ -12,8 +12,7 @@ function AkeraCrud(akeraWebInstance) {
 
 AkeraCrud.prototype.init = function(brokerName, route) {
     var app = this.akeraWebInstance.app;
-
-    route = (route === '/' ? '/rest' : route) || '/rest';
+    route = (route === '/' ? '/rest' : route) || this.akeraWebInstance.akeraServices.restRoute || '/rest';
 
     app.use(route + (brokerName ? '/' + brokerName : '/:broker'), new crud_router(brokerName || null, this.akeraWebInstance));
     this.log('info', 'Akera CRUD Service enabled for all brokers.');
