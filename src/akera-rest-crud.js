@@ -10,31 +10,13 @@ function AkeraCrud(akeraWebInstance) {
     }
 }
 
-AkeraCrud.prototype.init = function(brokers, route) {
+AkeraCrud.prototype.init = function(brokerName, route) {
     var app = this.akeraWebInstance.app;
 
     route = (route === '/' ? '/rest' : route) || '/rest';
 
-    if (!brokers || brokers.length === 0) {
-        app.use(route + '/:broker', new crud_router(null, this.akeraWebInstance));
-        this.log('info', 'Akera CRUD Service enabled for all brokers.');
-    } else {
-        brokers.forEach(function(brokerName) {
-            var broker_path = route + '/' + brokerName;
-            app.use(broker_path, new crud_router(brokerName, this.akeraWebInstance));
-            this.log('info', 'Akera CRUD Service enabled for broker\'' + brokerName);
-        });
-    }
-
-    //this.brokers = config.brokers;
-    /*
-    app.use(broker_path, new file_router(brokerName, this.akeraWebInstance));
-    app.use(broker_path, new crud_router(brokerName, this.akeraWebInstance));
-    this.log('info', 'Akera rest service enabled for ' + brokerName || 'all defined brokers.');
-
-    app.use(route, express.static(www_path));
-    this.log('info', 'Akera rest explorer may be accessed via the following route: ' + route);
-    */
+    app.use(route + (brokerName ? '/' + brokerName : '/:broker'), new crud_router(brokerName || null, this.akeraWebInstance));
+    this.log('info', 'Akera CRUD Service enabled for all brokers.');
 };
 
 AkeraCrud.prototype.log = function(level, message) {
