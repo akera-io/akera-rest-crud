@@ -16,7 +16,7 @@
   "main": "index.js",
   "dependencies": {
     "express": "latest",
-    "akera-api": "latest"
+    "akera-api": "1.0.4"
   },
   "scripts": {
     "prepublish": "grunt"
