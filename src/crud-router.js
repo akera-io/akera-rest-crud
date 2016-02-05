@@ -362,16 +362,10 @@ function getDbsNames(dbsList) {
 }
 
 function sendError(err, res) {
-	var e;
-	if (err instanceof Object) {
-		if (Object.keys(err).length !== 0) {
-			e = JSON.stringify(err);
-		} else {
-			e = err.toString();
-		}
-	} else if (typeof(err) === 'string') {
-		e = err.toString();
-	}
+	var e = {
+	    message: err.message,
+	    code: err.code
+	};
 	res.status(500).send(e);
 }
 
