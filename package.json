@@ -8,6 +8,7 @@
   "publishConfig": {
     "registry": "http://repository.akera.io/"
   },
+  "version": "1.0.0",
   "description": "Akera-web CRUD component",
   "license": "SEE LICENSE IN <LICENSE>",
   "engines": {

@@ -1,17 +1,12 @@
-var express = require('express');
 var akeraApi = require('akera-api');
 var dbsList = null;
 var dbsTables = [];
 var tblFields = [];
 
-function getMiddleware(brokerName, akeraWebInstance) {
-	var router = express.Router({
-		mergeParams: true
-	});
+function setupRouter(router) {
+	var broker = router.__broker;
 
-	router.get('/crud/meta', function(req, res) {
-		var brkName = req.params.broker || brokerName;
-		var broker = akeraWebInstance.getBroker(brkName);
+	router.get('/meta', function(req, res) {
 		connect(broker, function(err, conn) {
 			if (err) {
 				sendError(err, res);
@@ -29,9 +24,7 @@ function getMiddleware(brokerName, akeraWebInstance) {
 		});
 	});
 
-	router.get('/crud/meta/:database', function(req, res) {
-		var brkName = req.params.broker || brokerName;
-		var broker = akeraWebInstance.getBroker(brkName);
+	router.get('/meta/:database', function(req, res) {
 		connect(broker, function(err, conn) {
 			if (err) {
 				sendError(err, res);
@@ -57,9 +50,7 @@ function getMiddleware(brokerName, akeraWebInstance) {
 		});
 	});
 
-	router.get('/crud/meta/:database/:table', function(req, res) {
-		var brkName = req.params.broker || brokerName;
-		var broker = akeraWebInstance.getBroker(brkName);
+	router.get('/meta/:database/:table', function(req, res) {
 		connect(broker, function(err, conn) {
 			if (err) {
 				sendError(err, res);
@@ -82,9 +73,7 @@ function getMiddleware(brokerName, akeraWebInstance) {
 		});
 	});
 
-	router.get('/crud/meta/:database/:table/indexes', function(req, res) {
-		var brkName = req.params.broker || brokerName;
-		var broker = akeraWebInstance.getBroker(brkName);
+	router.get('/meta/:database/:table/indexes', function(req, res) {
 		connect(broker, function(err, conn) {
 			if (err) {
 				sendError(err, res);
@@ -120,10 +109,7 @@ function getMiddleware(brokerName, akeraWebInstance) {
 		});
 	});
 
-	router.get('/crud/:db/:table', function(req, res) {
-		var brkName = req.params.broker || brokerName;
-		var broker = akeraWebInstance.getBroker(brkName);
-
+	router.get('/:db/:table', function(req, res) {
 		connect(broker, req.params.db, function(err, conn) {
 			if (err) {
 				sendError(err, res);
@@ -147,9 +133,7 @@ function getMiddleware(brokerName, akeraWebInstance) {
 		});
 	});
 
-	router.get('/crud/:db/:table/count', function(req, res) {
-		var brkName = req.params.broker || brokerName;
-		var broker = akeraWebInstance.getBroker(brkName);
+	router.get('/:db/:table/count', function(req, res) {
 		connect(broker, req.params.db, function(err, conn) {
 			if (err) {
 				sendError(err, res);
@@ -175,9 +159,7 @@ function getMiddleware(brokerName, akeraWebInstance) {
 		});
 	});
 	//insert
-	router.post('/crud/:db/:table', function(req, res) {
-		var brkName = req.params.broker || brokerName;
-		var broker = akeraWebInstance.getBroker(brkName);
+	router.post('/:db/:table', function(req, res) {
 		connect(broker, req.params.db, function(err, conn) {
 			if (err) {
 				sendError(err, res);
@@ -202,9 +184,7 @@ function getMiddleware(brokerName, akeraWebInstance) {
 		});
 	});
 	//upsert
-	router.put('/crud/:db/:table', function(req, res) {
-		var brkName = req.params.broker || brokerName;
-		var broker = akeraWebInstance.getBroker(brkName);
+	router.put('/:db/:table', function(req, res) {
 		connect(broker, req.params.db, function(err, conn) {
 			if (err) {
 				sendError(err, res);
@@ -228,9 +208,7 @@ function getMiddleware(brokerName, akeraWebInstance) {
 		});
 	});
 
-	router.post('/crud/:db/:table/update', function(req, res) {
-		var brkName = req.params.broker || brokerName;
-		var broker = akeraWebInstance.getBroker(brkName);
+	router.post('/:db/:table/update', function(req, res) {
 		connect(broker, req.params.db, function(err, conn) {
 			if (err) {
 				sendError(err, res);
@@ -259,9 +237,7 @@ function getMiddleware(brokerName, akeraWebInstance) {
 		});
 	});
 
-	router.delete('/crud/:db/:table', function(req, res) {
-		var brkName = req.params.broker || brokerName;
-		var broker = akeraWebInstance.getBroker(brkName);
+	router.delete('/:db/:table', function(req, res) {
 		connect(broker, req.params.db, function(err, conn) {
 			if (err) {
 				sendError(err, res);
@@ -469,4 +445,4 @@ function setupWhereFilter(conn, query) {
 	return q;
 }
 
-module.exports = getMiddleware;
+module.exports = setupRouter;
