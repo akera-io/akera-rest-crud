@@ -5,19 +5,22 @@
     "email": "liviu.mihaianu@acorn.ro"
   },
   "homepage": "http://akera.io",
-  "publishConfig": {
-    "registry": "http://repository.akera.io/"
-  },
   "version": "1.0.0",
-  "description": "Akera-web CRUD component",
-  "license": "SEE LICENSE IN <LICENSE>",
+  "description": "Akera-web REST data access (CRUD) component",
+  "license": {
+    "type": "MIT",
+    "url": "https://github.com/akera-io/akera-rest-crud/raw/master/LICENSE"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/akera-io/akera-rest-crud.git"
+  },
   "engines": {
     "node": ">= 0.10.0"
   },
   "main": "index.js",
   "dependencies": {
-    "express": "latest",
-    "akera-api": "1.0.4"
+    "akera-api": ">=1.0.9"
   },
   "scripts": {
     "prepublish": "grunt"

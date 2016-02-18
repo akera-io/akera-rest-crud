@@ -14,7 +14,8 @@ module.exports = function(grunt) {
     // Task configuration.
     uglify: {
       options: {
-        banner: '<%= banner %>'
+        banner: '<%= banner %>',
+        mangle: false
       },
       min: {
         files: [{
@@ -39,6 +40,7 @@ module.exports = function(grunt) {
         unused: true,
         boss: true,
         eqnull: true,
+        laxbreak: true,
         globals: {}
       },
       akeraCrud:{
