@@ -14,8 +14,7 @@ module.exports = function(grunt) {
     // Task configuration.
     uglify: {
       options: {
-        banner: '<%= banner %>',
-        mangle: false
+        banner: '<%= banner %>'
       },
       min: {
         files: [{

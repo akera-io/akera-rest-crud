@@ -154,6 +154,10 @@ function AkeraRestCrud(akeraWebApp) {
 
   this.getPkFilter = function(pk, val) {
     if (typeof val === 'string') {
+      if (val.length > 0 && val.charAt(val.length - 1) === '/') {
+        val = val.substring(0, val.length - 1);
+      }
+
       val = val.split('/');
     }
 
