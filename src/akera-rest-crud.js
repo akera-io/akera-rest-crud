@@ -295,6 +295,33 @@ function AkeraRestCrud(akeraWebApp) {
     });
   };
 
+  this._update = function(conn, table, filter, data, res) {
+
+    try {
+      conn.query.update(table).where(filter).set(data).fetch().then(
+          function(rows) {
+            conn.disconnect();
+            switch (rows.length) {
+            case 0:
+              res.status(404).send();
+              break;
+            case 1:
+              res.status(200).send(rows[0]);
+              break;
+            default:
+              res.status(200).send(rows);
+            }
+          })['catch'](function(err) {
+        conn.disconnect();
+        self.error(err, res);
+      });
+    } catch (e) {
+      conn.disconnect();
+      self.error(e, res);
+    }
+
+  };
+
   this.doUpdate = function(req, res) {
     self.connect(req.broker, function(err, conn) {
       if (err) {
@@ -306,35 +333,46 @@ function AkeraRestCrud(akeraWebApp) {
           if (err) {
             self.error(err, res);
           } else {
-            try {
-              table = db + '.' + table;
-              var filter = self.getPkFilter(pk, req.params[0]);
-
-              conn.query.update(table).where(filter).set(req.body).fetch()
-                  .then(function(rows) {
-                    conn.disconnect();
-                    switch (rows.length) {
-                    case 0:
-                      res.status(404).send();
-                      break;
-                    case 1:
-                      res.status(200).send(rows[0]);
-                      break;
-                    default:
-                      res.status(200).send(rows);
-                    }
-                  })['catch'](function(err) {
-                conn.disconnect();
-                self.error(err, res);
-              });
-            } catch (e) {
-              conn.disconnect();
-              self.error(e, res);
-            }
+            self._update(conn, db + '.' + table, self.getPkFilter(pk,
+                req.params[0]), req.body);
           }
         });
       }
     });
+  };
+
+  this.doUpdateByRowid = function(req, res) {
+    self.connect(req.broker, function(err, conn) {
+      if (err) {
+        self.error(err, res);
+      } else {
+        var table = req.params.db + '.' + req.params.table;
+        var filter = f.rowid(table, req.params.id);
+
+        self._update(conn, db + '.' + table, filter, req.body);
+      }
+    });
+  };
+
+  this._delete = function(conn, table, filter, res) {
+    try {
+      conn.query.destroy(table).where(filter).go().then(function(result) {
+        conn.disconnect();
+        if (result === 0) {
+          res.status(404).send();
+        } else {
+          res.status(200).send({
+            num : result
+          });
+        }
+      })['catch'](function(err) {
+        conn.disconnect();
+        self.error(err, res);
+      });
+    } catch (e) {
+      conn.disconnect();
+      self.error(e, res);
+    }
   };
 
   this.doDelete = function(req, res) {
@@ -348,30 +386,25 @@ function AkeraRestCrud(akeraWebApp) {
           if (err) {
             self.error(err, res);
           } else {
-            try {
-              table = db + '.' + table;
-              var filter = self.getPkFilter(pk, req.params[0]);
-
-              conn.query.destroy(table).where(filter).go().then(
-                  function(result) {
-                    conn.disconnect();
-                    if (result === 0) {
-                      res.status(404).send();
-                    } else {
-                      res.status(200).send({
-                        num : result
-                      });
-                    }
-                  })['catch'](function(err) {
-                conn.disconnect();
-                self.error(err, res);
-              });
-            } catch (e) {
-              conn.disconnect();
-              self.error(e, res);
-            }
+            self._delete(conn, db + '.' + table, self.getPkFilter(pk,
+                req.params[0]), res);
           }
         });
+      }
+    });
+  };
+
+  this.doDeleteByRowid = function(req, res) {
+    self.connect(req.broker, function(err, conn) {
+      if (err) {
+        self.error(err, res);
+      } else {
+
+        var table = req.params.db + '.' + req.params.table;
+        var filter = f.rowid(table, req.params.id);
+
+        self._delete(conn, table, filter, res);
+
       }
     });
   };
@@ -419,7 +452,10 @@ function AkeraRestCrud(akeraWebApp) {
     router.get(config.route + ':db/:table/count', self.doCount);
     router.get(config.route + ':db/:table/*', self.doSelect);
     router.post(config.route + ':db/:table', self.doCreate);
+    router.put(config.route + ':db/:table/rowid/:id', self.doUpdateByRowid);
     router.put(config.route + ':db/:table/*', self.doUpdate);
+    router['delete'](config.route + ':db/:table/rowid/:id',
+        self.doDeleteByRowid);
     router['delete'](config.route + ':db/:table/*', self.doDelete);
   };
 
