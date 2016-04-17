@@ -5,7 +5,7 @@
     "email": "liviu.mihaianu@acorn.ro"
   },
   "homepage": "http://akera.io",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Akera-web REST data access (CRUD) component",
   "license": {
     "type": "MIT",
@@ -20,8 +20,9 @@
   },
   "main": "index.js",
   "dependencies": {
-    "akera-api": ">=1.0.9"
+    "akera-api": ">=1.0.15"
   },
+  "bundledDependencies": ["akera-api"],
   "scripts": {
     "prepublish": "grunt"
   },

@@ -25,26 +25,24 @@ function AkeraRestCrud(akeraWebApp) {
   this.connect = function(broker, callback) {
     akeraApi.connect(broker).then(function(conn) {
       callback(null, conn);
-    }, function(err) {
-      callback(err);
-    });
+    }, callback);
   };
 
   this.getDatabases = function(req, res) {
     self.connect(req.broker, function(err, conn) {
       if (err) {
-        self.error(err, res);
-      } else {
-        conn.getMetaData().allDatabases().then(function(dbs) {
-          conn.disconnect();
-          res.status(200).send(dbs.map(function(db) {
-            return db.getLname().toLowerCase();
-          }));
-        }, function(err) {
-          conn.disconnect();
-          self.error(err, res);
-        });
+        return self.error(err, res);
       }
+      
+      conn.getMetaData().allDatabases().then(function(dbs) {
+        conn.disconnect();
+        res.status(200).send(dbs.map(function(db) {
+          return db.getLname().toLowerCase();
+        }));
+      }, function(err) {
+        conn.disconnect();
+        self.error(err, res);
+      });
     });
   };
 
@@ -53,23 +51,20 @@ function AkeraRestCrud(akeraWebApp) {
 
     self.connect(req.broker, function(err, conn) {
       if (err) {
-        self.error(err, res);
-      } else {
-        conn.getMetaData().getDatabase(db).then(function(dbMeta) {
-          return dbMeta.allTables();
-        }, function() {
-          conn.disconnect();
-          res.status(404).send();
-        }).then(function(tables) {
-          conn.disconnect();
-          res.status(200).send(tables.map(function(tbl) {
-            return tbl.getName().toLowerCase();
-          }));
-        }, function(err) {
-          conn.disconnect();
-          self.error(err, res);
-        });
+        return self.error(err, res);
       }
+      
+      conn.getMetaData().getDatabase(db).then(function(dbMeta) {
+        return dbMeta.allTables();
+      }).then(function(tables) {
+        conn.disconnect();
+        res.status(200).send(tables.map(function(tbl) {
+          return tbl.getName().toLowerCase();
+        }));
+      })['catch'](function(err) {
+        conn.disconnect();
+        self.error(err, res);
+      });
     });
   };
 
@@ -80,26 +75,20 @@ function AkeraRestCrud(akeraWebApp) {
 
     self.connect(req.broker, function(err, conn) {
       if (err) {
-        self.error(err, res);
-      } else {
-        conn.getMetaData().getDatabase(db).then(function(dbMeta) {
-          return dbMeta.getTable(table);
-        }, function() {
-          conn.disconnect();
-          res.status(404).send();
-        }).then(function(tbl) {
-          return tbl.getAllFields();
-        }, function() {
-          conn.disconnect();
-          res.status(404).send();
-        }).then(function(fields) {
-          conn.disconnect();
-          res.status(200).send(fields);
-        }, function(err) {
-          conn.disconnect();
-          self.error(err, res);
-        });
+        return self.error(err, res);
       }
+      
+      conn.getMetaData().getDatabase(db).then(function(dbMeta) {
+        return dbMeta.getTable(table);
+      }).then(function(tbl) {
+        return tbl.getAllFields();
+      }).then(function(fields) {
+        conn.disconnect();
+        res.status(200).send(fields);
+      })['catch'](function(err) {
+        conn.disconnect();
+        self.error(err, res);
+      });
     });
   };
 
@@ -110,26 +99,20 @@ function AkeraRestCrud(akeraWebApp) {
 
     self.connect(req.broker, function(err, conn) {
       if (err) {
-        self.error(err, res);
-      } else {
-        conn.getMetaData().getDatabase(db).then(function(dbMeta) {
-          return dbMeta.getTable(table);
-        }, function() {
-          conn.disconnect();
-          res.status(404).send();
-        }).then(function(tbl) {
-          return tbl.getAllIndexes();
-        }, function() {
-          conn.disconnect();
-          res.status(404).send();
-        }).then(function(indexes) {
-          conn.disconnect();
-          res.status(200).send(indexes);
-        }, function(err) {
-          conn.disconnect();
-          self.error(err, res);
-        });
+        return self.error(err, res);
       }
+      
+      conn.getMetaData().getDatabase(db).then(function(dbMeta) {
+        return dbMeta.getTable(table);
+      }).then(function(tbl) {
+        return tbl.getAllIndexes();
+      }).then(function(indexes) {
+        conn.disconnect();
+        res.status(200).send(indexes);
+      })['catch'](function(err) {
+        conn.disconnect();
+        self.error(err, res);
+      });
     });
   };
 
@@ -137,19 +120,19 @@ function AkeraRestCrud(akeraWebApp) {
     var tableName = (db + '.' + table).toLowerCase();
 
     if (pkInfo[tableName]) {
-      cb(null, pkInfo[tableName]);
-    } else {
-      conn.getMetaData().getDatabase(db).then(function(dbMeta) {
-        return dbMeta.getTable(table);
-      }).then(function(tbl) {
-        return tbl.getPk();
-      }).then(function(pk) {
-        pkInfo[tableName] = pk.fields;
-        cb(null, pkInfo[tableName]);
-      })['catch'](function(err) {
-        cb(err);
-      });
+      return cb(null, pkInfo[tableName]);
     }
+    
+    conn.getMetaData().getDatabase(db).then(function(dbMeta) {
+      return dbMeta.getTable(table);
+    }).then(function(tbl) {
+      return tbl.getPk();
+    }).then(function(pk) {
+      pkInfo[tableName] = pk.fields;
+      cb(null, pkInfo[tableName]);
+    })['catch'](function(err) {
+      cb(err);
+    });
   };
 
   this.getPkFilter = function(pk, val) {
@@ -222,13 +205,13 @@ function AkeraRestCrud(akeraWebApp) {
     if (pkVal) {
       self.getPk(conn, req.params.db, req.params.table, function(err, pk) {
         if (err) {
-          cb(err);
-        } else {
-          try {
-            cb(null, self._getQuery(conn, req, pk));
-          } catch (e) {
-            cb(e);
-          }
+          return cb(err);
+        }
+        
+        try {
+          cb(null, self._getQuery(conn, req, pk));
+        } catch (e) {
+          cb(e);
         }
       });
     } else {
@@ -243,54 +226,54 @@ function AkeraRestCrud(akeraWebApp) {
   this.doSelect = function(req, res) {
     self.connect(req.broker, function(err, conn) {
       if (err) {
-        self.error(err, res);
-      } else {
-        self.getQuery(conn, req, function(err, qry) {
-          if (err) {
+        return self.error(err, res);
+      }
+      
+      self.getQuery(conn, req, function(err, qry) {
+        if (err) {
+          conn.disconnect();
+          self.error(err, res);
+        } else {
+          qry.all().then(function(rows) {
+            conn.disconnect();
+            switch (rows.length) {
+            case 0:
+              res.status(404).send();
+              break;
+            case 1:
+              res.status(200).send(rows[0]);
+              break;
+            default:
+              res.status(200).send(rows);
+            }
+          })['catch'](function(err) {
             conn.disconnect();
             self.error(err, res);
-          } else {
-            qry.all().then(function(rows) {
-              conn.disconnect();
-              switch (rows.length) {
-              case 0:
-                res.status(404).send();
-                break;
-              case 1:
-                res.status(200).send(rows[0]);
-                break;
-              default:
-                res.status(200).send(rows);
-              }
-            })['catch'](function(err) {
-              conn.disconnect();
-              self.error(err, res);
-            });
-          }
-        });
-      }
+          });
+        }
+      });
     });
   };
 
   this.doCreate = function(req, res) {
     self.connect(req.broker, function(err, conn) {
       if (err) {
-        self.error(err, res);
-      } else {
-        try {
-          var table = req.params.db + '.' + req.params.table;
+        return self.error(err, res);
+      }
+      
+      try {
+        var table = req.params.db + '.' + req.params.table;
 
-          conn.query.insert(table).set(req.body).fetch().then(function(row) {
-            conn.disconnect();
-            res.status(200).send(row);
-          })['catch'](function(err) {
-            conn.disconnect();
-            self.error(err, res);
-          });
-        } catch (e) {
+        conn.query.insert(table).set(req.body).fetch().then(function(row) {
           conn.disconnect();
-          self.error(e, res);
-        }
+          res.status(200).send(row);
+        })['catch'](function(err) {
+          conn.disconnect();
+          self.error(err, res);
+        });
+      } catch (e) {
+        conn.disconnect();
+        self.error(e, res);
       }
     });
   };
@@ -325,32 +308,32 @@ function AkeraRestCrud(akeraWebApp) {
   this.doUpdate = function(req, res) {
     self.connect(req.broker, function(err, conn) {
       if (err) {
-        self.error(err, res);
-      } else {
-        var db = req.params.db;
-        var table = req.params.table;
-        self.getPk(conn, db, table, function(err, pk) {
-          if (err) {
-            self.error(err, res);
-          } else {
-            self._update(conn, db + '.' + table, self.getPkFilter(pk,
-                req.params[0]), req.body);
-          }
-        });
+        return self.error(err, res);
       }
+      
+      var db = req.params.db;
+      var table = req.params.table;
+      self.getPk(conn, db, table, function(err, pk) {
+        if (err) {
+          return self.error(err, res);
+        }
+        
+        self._update(conn, db + '.' + table, self
+            .getPkFilter(pk, req.params[0]), req.body);
+      });
     });
   };
 
   this.doUpdateByRowid = function(req, res) {
     self.connect(req.broker, function(err, conn) {
       if (err) {
-        self.error(err, res);
-      } else {
-        var table = req.params.db + '.' + req.params.table;
-        var filter = f.rowid(table, req.params.id);
-
-        self._update(conn, db + '.' + table, filter, req.body);
+        return self.error(err, res);
       }
+      
+      var table = req.params.db + '.' + req.params.table;
+      var filter = f.rowid(table, req.params.id);
+
+      self._update(conn, db + '.' + table, filter, req.body);
     });
   };
 
@@ -378,57 +361,56 @@ function AkeraRestCrud(akeraWebApp) {
   this.doDelete = function(req, res) {
     self.connect(req.broker, function(err, conn) {
       if (err) {
-        self.error(err, res);
-      } else {
-        var db = req.params.db;
-        var table = req.params.table;
-        self.getPk(conn, db, table, function(err, pk) {
-          if (err) {
-            self.error(err, res);
-          } else {
-            self._delete(conn, db + '.' + table, self.getPkFilter(pk,
-                req.params[0]), res);
-          }
-        });
+        return self.error(err, res);
       }
+      
+      var db = req.params.db;
+      var table = req.params.table;
+      self.getPk(conn, db, table, function(err, pk) {
+        if (err) {
+          return self.error(err, res);
+        }
+        
+        self._delete(conn, db + '.' + table, self
+            .getPkFilter(pk, req.params[0]), res);
+      });
     });
   };
 
   this.doDeleteByRowid = function(req, res) {
     self.connect(req.broker, function(err, conn) {
       if (err) {
-        self.error(err, res);
-      } else {
-
-        var table = req.params.db + '.' + req.params.table;
-        var filter = f.rowid(table, req.params.id);
-
-        self._delete(conn, table, filter, res);
-
+        return self.error(err, res);
       }
+      
+      var table = req.params.db + '.' + req.params.table;
+      var filter = f.rowid(table, req.params.id);
+
+      self._delete(conn, table, filter, res);
+
     });
   };
 
   this.doCount = function(req, res) {
     self.connect(req.broker, function(err, conn) {
       if (err) {
-        self.error(err, res);
-      } else {
-        try {
-          var qry = self._getQuery(conn, req);
-          qry.count().then(function(rows) {
-            conn.disconnect();
-            res.status(200).send({
-              num : rows
-            });
-          })['catch'](function(err) {
-            conn.disconnect();
-            self.error(err, res);
-          });
-        } catch (e) {
+        return self.error(err, res);
+      }
+      
+      try {
+        var qry = self._getQuery(conn, req);
+        qry.count().then(function(rows) {
           conn.disconnect();
-          self.error(e, res);
-        }
+          res.status(200).send({
+            num : rows
+          });
+        })['catch'](function(err) {
+          conn.disconnect();
+          self.error(err, res);
+        });
+      } catch (e) {
+        conn.disconnect();
+        self.error(e, res);
       }
     });
   };
