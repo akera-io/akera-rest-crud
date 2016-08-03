@@ -9,7 +9,6 @@ function JSDOCacheManager() {
     };
     
     this.getService = function(svName) {
-      console.log('loading service %s', svName);
       for (var i=0; i<_services.length; i++) {
         var s = _services[i];
         if (s.name === svName) {
@@ -20,7 +19,6 @@ function JSDOCacheManager() {
     };
     
     this.storeService = function(svc) {
-      console.log('storing service %s', svc.name);
       var s = this.getService(svc.name);
       if (s) {
         this.concatenateResources(s, svc);
@@ -77,10 +75,8 @@ function JSDOCacheManager() {
     
     this.rootLoaded = function(loaded) {
       if (loaded) {
-        console.log('setting root loaded to %s', loaded);
         this._rootLoaded = loaded;
       } else {
-        console.log('root loaded: %s', this._rootLoaded);
         return this._rootLoaded;
       }
     };
