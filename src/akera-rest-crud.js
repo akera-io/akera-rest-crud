@@ -428,6 +428,8 @@ function AkeraRestCrud(akeraWebApp) {
        case 'jsdo':
          //TODO: implement jsdo support
          router.get(config.route + 'jsdo/metadata', jsdoBuilder.buildCatalog);
+         router.get(config.route + 'jsdo/:db', jsdoBuilder.buildCatalog);
+         router.get(config.route + 'jsdo/:db/:table', jsdoBuilder.buildCatalog);
          break;
        case 'rest':
          router.get(config.route + 'plain/meta', self.getDatabases);

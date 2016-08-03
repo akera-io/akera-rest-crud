@@ -18,10 +18,11 @@ function JSDOBuilder() {
 
   this.buildCatalog = function(req, res) {
     var tableName = req.params.table;
-
+    var dbName = req.params.db;
+    
     var root = getRootNode();
 
-    if (!tableName) {
+    if (!tableName && !dbName) {
       if (cacheMgr.rootLoaded()) {
         root.services = cacheMgr.getAllServices();
         return res.status(200).json(root);
@@ -30,7 +31,7 @@ function JSDOBuilder() {
         akera.connect(broker).then(function(conn) {
           conn.getMetaData().allDatabases().then(function(dbs) {
             async.forEach(dbs, function(db, acb) {
-              getDatabaseService(db, function(err, service) {
+              getDatabaseService(db, null, function(err, service) {
                 root.services.push(service);
                 cacheMgr.storeService(service);
                 acb(err);
@@ -52,6 +53,49 @@ function JSDOBuilder() {
           error(err, res);
         });
       }
+    } else if (dbName && !tableName) {
+      var s = cacheMgr.getService(dbName + 'Service');
+      if (s) {
+        root.services.push(s);
+        return res.status(200).json(root);
+      } else {
+        akera.connect(req.broker).then(function(conn) {
+          conn.getMetaData().getDatabase(dbName).then(function(db) {
+            getDatabaseService(db, null, function(err, sv) {
+              if (err) {
+                return error(err, res);
+              } else {
+                root.services.push(sv);
+                cacheMgr.storeService(sv);
+                return res.status(200).json(root);
+              }
+            });
+          });
+        });
+        
+        
+      }
+    } else {
+      var resource = cacheMgr.getTableResource(dbName + 'Service', tableName);
+      if (resource) {
+        root.services.push(cacheMgr.getService(dbName + 'Service'));
+        return res.status(200).json(root);
+      } else {
+        akera.connect(req.broker).then(function(conn) {
+          conn.getMetaData().getDatabase(dbName).then(function(db) {
+            getDatabaseService(db, tableName, function(err, sv) {
+              if (err) {
+                return error(err, res);
+              } else {
+                root.services.push(sv);
+                cacheMgr.storeService(sv);
+                return res.status(200).json(root);
+              }
+            });
+          });
+        });
+        
+      }
     }
   };
 }
@@ -64,23 +108,32 @@ function getRootNode() {
   };
 }
 
-function getDatabaseService(db, cb) {
+function getDatabaseService(db, table, cb) {
   var service = {
-    name : db.getName() + 'Service',
-    address : '\/' + db.getName(),
+    name :db.getName() + 'Service',
+    address : '\/' + db.getName() + 'Service',
     useRequest : true,
     resources : []
   };
-  db.allTables().then(function(tbls) {
-    async.forEach(tbls, function(table, bcb) {
-      getTableResource(table, function(err, r) {
+  if (table && typeof(table) === 'string') {
+    db.getTable(table).then(function(tblMeta) {
+      getTableResource(tblMeta, function(err, r) {
         service.resources.push(r);
-        bcb(err);
+        cb(null, service);
+      }, cb);
+    }, cb);
+  } else {
+    db.allTables().then(function(tbls) {
+      async.forEach(tbls, function(table, bcb) {
+        getTableResource(table, function(err, r) {
+          service.resources.push(r);
+          bcb(err);
+        });
+      }, function() {
+        cb(null, service);
       });
-    }, function() {
-      cb(null, service);
-    });
-  }, cb);
+    }, cb);
+  }
 }
 
 function getTableResource(table, cb) {

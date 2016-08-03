@@ -27,8 +27,8 @@ function JSDOCacheManager() {
       }
     };
     
-    this.getTableResource = function(dbName, tableName) {
-      var s = this.getServiceForDb(dbName);
+    this.getTableResource = function(svName, tableName) {
+      var s = this.getService(svName);
       if (s) {
         for (var i=0; i<s.resources.length; i++) {
           var resource = s.resources[i];
