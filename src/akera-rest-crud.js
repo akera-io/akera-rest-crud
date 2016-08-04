@@ -428,24 +428,24 @@ function AkeraRestCrud(akeraWebApp) {
        case 'jsdo':
          //TODO: implement jsdo support
          router.get(config.route + 'jsdo/metadata', jsdoBuilder.buildCatalog);
-         router.get(config.route + 'jsdo/:db', jsdoBuilder.buildCatalog);
-         router.get(config.route + 'jsdo/:db/:table', jsdoBuilder.buildCatalog);
+         router.get(config.route + 'jsdo/metadata/:db', jsdoBuilder.buildCatalog);
+         router.get(config.route + 'jsdo/metadata/:db/:table', jsdoBuilder.buildCatalog);
          break;
        case 'rest':
-         router.get(config.route + 'plain/meta', self.getDatabases);
-         router.get(config.route + 'plain/meta/:db', self.getTables);
-         router.get(config.route + 'plain/meta/:db/:table', self.getFields);
-         router.get(config.route + 'plain/meta/:db/:table/index(es)?', self.getIndexes);
+         router.get(config.route + 'metadata', self.getDatabases);
+         router.get(config.route + 'metadata/:db', self.getTables);
+         router.get(config.route + 'metadata/:db/:table', self.getFields);
+         router.get(config.route + 'metadata/:db/:table/index(es)?', self.getIndexes);
 
-         router.get(config.route + 'plain/:db/:table', self.doSelect);
-         router.get(config.route + 'plain/:db/:table/count', self.doCount);
-         router.get(config.route + 'plain/:db/:table/*', self.doSelect);
-         router.post(config.route + 'plain/:db/:table', self.doCreate);
-         router.put(config.route + 'plain/:db/:table/rowid/:id', self.doUpdateByRowid);
-         router.put(config.route + 'plain/:db/:table/*', self.doUpdate);
-         router['delete'](config.route + 'plain/:db/:table/rowid/:id',
+         router.get(config.route + ':db/:table', self.doSelect);
+         router.get(config.route + ':db/:table/count', self.doCount);
+         router.get(config.route + ':db/:table/*', self.doSelect);
+         router.post(config.route + ':db/:table', self.doCreate);
+         router.put(config.route + ':db/:table/rowid/:id', self.doUpdateByRowid);
+         router.put(config.route + ':db/:table/*', self.doUpdate);
+         router['delete'](config.route + ':db/:table/rowid/:id',
              self.doDeleteByRowid);
-         router['delete'](config.route + 'plain/:db/:table/*', self.doDelete);
+         router['delete'](config.route + ':db/:table/*', self.doDelete);
           break;
        default:
           throw new Error('Invalid api interface specified');
@@ -463,9 +463,16 @@ function AkeraRestCrud(akeraWebApp) {
     config.route = akeraApp.getRoute(config.route || '/rest/crud/');
 
     if (config.serviceInterface instanceof Array) {
-      config.serviceInterface.forEach(function(interfaceName) {
-        self.setupInterface(interfaceName, config, router);
-      });
+      if (config.serviceInterface.length === 0)
+        self.setupInterface('rest', config, router);
+      else {
+        if (config.serviceInterface.indexOf('jsdo') >= 0)
+          self.setupInterface('jsdo', config, router);
+        if (config.serviceInterface.indexOf('odata') >= 0)
+          self.setupInterface('odata', config, router);
+        if (config.serviceInterface.indexOf('rest') >= 0)
+          self.setupInterface('rest', config, router);
+      }
     } else {
       self.setupInterface(config.serviceInterface, config, router);
     }
