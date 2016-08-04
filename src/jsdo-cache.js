@@ -2,29 +2,52 @@
 
 function JSDOCacheManager() {
     var _services = [];
+    var _fullyLoaded = [];
+    
     this._rootLoaded = false;
     
     this.getAllServices = function() {
       return _services;
     };
     
-    this.getService = function(svName) {
+    this.getService = function(svName, tableName) {
       for (var i=0; i<_services.length; i++) {
         var s = _services[i];
         if (s.name === svName) {
-          return s;
+          if (!tableName) {
+            return s;
+          } else {
+            for (var j=0; j<s.resources.length; j++) {
+              var r = s.resources[j];
+              if (r.name === tableName) {
+                var sCopy = clone(s);
+                sCopy.resources = sCopy.resources.filter(function (res) {
+                  return res.name === tableName;
+                });
+                return sCopy;
+              }
+            }
+            return null;
+          }
         }
       }
       return null;
     };
     
-    this.storeService = function(svc) {
+    this.storeService = function(svc, isFullyLoaded) {
       var s = this.getService(svc.name);
       if (s) {
         this.concatenateResources(s, svc);
       } else {
         _services.push(svc);
       }
+      if (isFullyLoaded) {
+        _fullyLoaded.push(svc.name);
+      }
+    };
+    
+    this.isSvcFullyLoaded = function(svc) {
+       return svc && _fullyLoaded.indexOf(svc.name || svc) >= 0;     
     };
     
     this.getTableResource = function(svName, tableName) {
@@ -80,6 +103,14 @@ function JSDOCacheManager() {
         return this._rootLoaded;
       }
     };
+}
+
+function clone(o) {
+  var ret = {};
+  Object.keys(o).forEach(function (val) {
+    ret[val] = o[val];
+  });
+  return ret;
 }
 
 module.exports = JSDOCacheManager;

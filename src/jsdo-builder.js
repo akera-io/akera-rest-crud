@@ -19,7 +19,7 @@ function JSDOBuilder() {
   this.buildCatalog = function(req, res) {
     var tableName = req.params.table;
     var dbName = req.params.db;
-    
+
     var root = getRootNode();
 
     if (!tableName && !dbName) {
@@ -54,31 +54,43 @@ function JSDOBuilder() {
         });
       }
     } else if (dbName && !tableName) {
+      console.log(dbName);
       var s = cacheMgr.getService(dbName + 'Service');
-      if (s) {
+      if (s && (cacheMgr.rootLoaded() || cacheMgr.isSvcFullyLoaded(s))) {
         root.services.push(s);
         return res.status(200).json(root);
       } else {
+        console.log('service %s is not cached or not fully loaded. loading from db', dbName + 'Service');
         akera.connect(req.broker).then(function(conn) {
+          console.log('connected');
           conn.getMetaData().getDatabase(dbName).then(function(db) {
+            console.log('got database meta for %s', dbName);
             getDatabaseService(db, null, function(err, sv) {
+              console.log('got db service %s', sv.name);
+              console.log('error %s', err);
               if (err) {
-                return error(err, res);
+                error(err, res);
               } else {
                 root.services.push(sv);
-                cacheMgr.storeService(sv);
-                return res.status(200).json(root);
+                cacheMgr.storeService(sv, true);
+                console.log('stored service %s', sv.name);
+                conn.disconnect().then(function() {
+                  console.log('disconnected');
+                  res.status(200).json(root);
+                });
               }
             });
+          }, function(err) {
+            error(err, res);
           });
+        }, function(err) {
+          error(err, res);
         });
-        
-        
       }
     } else {
       var resource = cacheMgr.getTableResource(dbName + 'Service', tableName);
       if (resource) {
-        root.services.push(cacheMgr.getService(dbName + 'Service'));
+        root.services.push(cacheMgr.getService(dbName + 'Service', tableName));
         return res.status(200).json(root);
       } else {
         akera.connect(req.broker).then(function(conn) {
@@ -89,12 +101,17 @@ function JSDOBuilder() {
               } else {
                 root.services.push(sv);
                 cacheMgr.storeService(sv);
-                return res.status(200).json(root);
+                conn.disconnect().then(function() {
+                  res.status(200).json(root);
+                });
               }
             });
+          }, function(err) {
+            error(err, res);
           });
+        }, function(err) {
+          error(err, res);
         });
-        
       }
     }
   };
@@ -110,12 +127,13 @@ function getRootNode() {
 
 function getDatabaseService(db, table, cb) {
   var service = {
-    name :db.getName() + 'Service',
-    address : '\/' + db.getName() + 'Service',
+    name : db.getName() + 'Service',
+    address : '\/' + db.getName(),
     useRequest : true,
     resources : []
   };
-  if (table && typeof(table) === 'string') {
+  console.log(table);
+  if (table && typeof (table) === 'string') {
     db.getTable(table).then(function(tblMeta) {
       getTableResource(tblMeta, function(err, r) {
         service.resources.push(r);
@@ -205,7 +223,10 @@ function getTableResource(table, cb) {
 }
 
 function error(err, res) {
-  res.status(500).json(err);
+  res.status(500).json(err instanceof Error ? {
+    message : err.message,
+    stack : err.stack
+  } : err);
 }
 
 module.exports = JSDOBuilder;
