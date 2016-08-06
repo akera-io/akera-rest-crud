@@ -4,55 +4,55 @@ module.exports = function(grunt) {
   // Project configuration.
   grunt.initConfig({
     // Metadata.
-    pkg: grunt.file.readJSON('package.json'),
-    banner: '/*! <%= pkg.title || pkg.name %> - ' +
-      '<%= grunt.template.today("yyyy-mm-dd") %>\n' +
-      '<%= pkg.homepage ? "* " + pkg.homepage + "\\n" : "" %>' +
-      '* Author: <%= pkg.author.name %>\n' +
-      '* Copyright (c) <%= grunt.template.today("yyyy") %> Acorn IT;\n' +
-      '* SEE LICENSE IN <LICENSE> */\n',
+    pkg : grunt.file.readJSON('package.json'),
+    banner : '/*! <%= pkg.title || pkg.name %> - '
+      + '<%= grunt.template.today("yyyy-mm-dd") %>\n'
+      + '<%= pkg.homepage ? "* " + pkg.homepage + "\\n" : "" %>'
+      + '* Author: <%= pkg.author.name %>\n'
+      + '* Copyright (c) <%= grunt.template.today("yyyy") %> Acorn IT;\n'
+      + '* SEE LICENSE IN <LICENSE> */\n',
     // Task configuration.
-    uglify: {
-      options: {
-        banner: '<%= banner %>'
+    uglify : {
+      options : {
+        banner : '<%= banner %>'
       },
-      min: {
-        files: [{
-                expand: true,
-                cwd: 'src/',
-                src: ['*.js'],
-                dest: 'lib/',
-                ext: '.js'
-            }]
+      min : {
+        files : [ {
+          expand : true,
+          cwd : 'src/',
+          src : [ '**/*.js' ],
+          dest : 'lib/',
+          ext : '.js'
+        } ]
       }
     },
-    jshint: {
-      options: {
-        curly: true,
-        eqeqeq: true,
-        immed: true,
-        latedef: false,
-        newcap: true,
-        noarg: true,
-        sub: true,
-        undef: false,
-        unused: true,
-        boss: true,
-        eqnull: true,
-        laxbreak: true,
-        globals: {}
+    jshint : {
+      options : {
+        curly : true,
+        eqeqeq : true,
+        immed : true,
+        latedef : false,
+        newcap : true,
+        noarg : true,
+        sub : true,
+        undef : false,
+        unused : true,
+        boss : true,
+        eqnull : true,
+        laxbreak : true,
+        globals : {}
       },
-      akeraCrud:{
-        src:'src/*.js'
+      akeraCrud : {
+        src : 'src/**/*.js'
       },
-      gruntfile: {
-        src: 'Gruntfile.js'
+      gruntfile : {
+        src : 'Gruntfile.js'
       }
     },
-    watch: {
-      gruntfile: {
-        files: '<%= jshint.gruntfile.src %>',
-        tasks: ['jshint:gruntfile']
+    watch : {
+      gruntfile : {
+        files : '<%= jshint.gruntfile.src %>',
+        tasks : [ 'jshint:gruntfile' ]
       }
     }
   });
@@ -63,6 +63,6 @@ module.exports = function(grunt) {
   grunt.loadNpmTasks('grunt-contrib-watch');
 
   // Default task.
-  grunt.registerTask('default', ['uglify']);
+  grunt.registerTask('default', [ 'uglify', 'jshint' ]);
 
 };
