@@ -3,8 +3,6 @@ module.exports = AkeraRestCrud;
 var akeraApi = require('akera-api');
 var f = akeraApi.query.filter;
 var akeraApp = null;
-var jsdoBuild = require('./jsdo-builder.js');
-var jsdoBuilder = new jsdoBuild();
 
 function AkeraRestCrud(akeraWebApp) {
   var self = this;
@@ -35,7 +33,7 @@ function AkeraRestCrud(akeraWebApp) {
       if (err) {
         return self.error(err, res);
       }
-      
+
       conn.getMetaData().allDatabases().then(function(dbs) {
         conn.disconnect();
         res.status(200).send(dbs.map(function(db) {
@@ -55,7 +53,7 @@ function AkeraRestCrud(akeraWebApp) {
       if (err) {
         return self.error(err, res);
       }
-      
+
       conn.getMetaData().getDatabase(db).then(function(dbMeta) {
         return dbMeta.allTables();
       }).then(function(tables) {
@@ -73,13 +71,13 @@ function AkeraRestCrud(akeraWebApp) {
   this.getFields = function(req, res) {
     var db = isNaN(req.params.db) ? req.params.db : parseInt(req.params.db);
     var table = isNaN(req.params.table) ? req.params.table
-        : parseInt(req.params.table);
+      : parseInt(req.params.table);
 
     self.connect(req.broker, function(err, conn) {
       if (err) {
         return self.error(err, res);
       }
-      
+
       conn.getMetaData().getDatabase(db).then(function(dbMeta) {
         return dbMeta.getTable(table);
       }).then(function(tbl) {
@@ -97,13 +95,13 @@ function AkeraRestCrud(akeraWebApp) {
   this.getIndexes = function(req, res) {
     var db = isNaN(req.params.db) ? req.params.db : parseInt(req.params.db);
     var table = isNaN(req.params.table) ? req.params.table
-        : parseInt(req.params.table);
+      : parseInt(req.params.table);
 
     self.connect(req.broker, function(err, conn) {
       if (err) {
         return self.error(err, res);
       }
-      
+
       conn.getMetaData().getDatabase(db).then(function(dbMeta) {
         return dbMeta.getTable(table);
       }).then(function(tbl) {
@@ -124,7 +122,7 @@ function AkeraRestCrud(akeraWebApp) {
     if (pkInfo[tableName]) {
       return cb(null, pkInfo[tableName]);
     }
-    
+
     conn.getMetaData().getDatabase(db).then(function(dbMeta) {
       return dbMeta.getTable(table);
     }).then(function(tbl) {
@@ -147,7 +145,8 @@ function AkeraRestCrud(akeraWebApp) {
     }
 
     if (pk instanceof Array && val instanceof Array && pk.length > 0
-        && pk.length === val.length) {
+      && pk.length === val.length)
+    {
       var crit = [];
       for ( var i in pk) {
         var fld = pk[i];
@@ -209,7 +208,7 @@ function AkeraRestCrud(akeraWebApp) {
         if (err) {
           return cb(err);
         }
-        
+
         try {
           cb(null, self._getQuery(conn, req, pk));
         } catch (e) {
@@ -230,7 +229,7 @@ function AkeraRestCrud(akeraWebApp) {
       if (err) {
         return self.error(err, res);
       }
-      
+
       self.getQuery(conn, req, function(err, qry) {
         if (err) {
           conn.disconnect();
@@ -239,14 +238,14 @@ function AkeraRestCrud(akeraWebApp) {
           qry.all().then(function(rows) {
             conn.disconnect();
             switch (rows.length) {
-            case 0:
-              res.status(404).send();
-              break;
-            case 1:
-              res.status(200).send(rows[0]);
-              break;
-            default:
-              res.status(200).send(rows);
+              case 0:
+                res.status(404).send();
+                break;
+              case 1:
+                res.status(200).send(rows[0]);
+                break;
+              default:
+                res.status(200).send(rows);
             }
           })['catch'](function(err) {
             conn.disconnect();
@@ -262,7 +261,7 @@ function AkeraRestCrud(akeraWebApp) {
       if (err) {
         return self.error(err, res);
       }
-      
+
       try {
         var table = req.params.db + '.' + req.params.table;
 
@@ -284,9 +283,9 @@ function AkeraRestCrud(akeraWebApp) {
 
     try {
       conn.query.update(table).where(filter).set(data).fetch().then(
-          function(rows) {
-            conn.disconnect();
-            switch (rows.length) {
+        function(rows) {
+          conn.disconnect();
+          switch (rows.length) {
             case 0:
               res.status(404).send();
               break;
@@ -295,8 +294,8 @@ function AkeraRestCrud(akeraWebApp) {
               break;
             default:
               res.status(200).send(rows);
-            }
-          })['catch'](function(err) {
+          }
+        })['catch'](function(err) {
         conn.disconnect();
         self.error(err, res);
       });
@@ -312,16 +311,16 @@ function AkeraRestCrud(akeraWebApp) {
       if (err) {
         return self.error(err, res);
       }
-      
+
       var db = req.params.db;
       var table = req.params.table;
       self.getPk(conn, db, table, function(err, pk) {
         if (err) {
           return self.error(err, res);
         }
-        
+
         self._update(conn, db + '.' + table, self
-            .getPkFilter(pk, req.params[0]), req.body);
+          .getPkFilter(pk, req.params[0]), req.body);
       });
     });
   };
@@ -331,7 +330,7 @@ function AkeraRestCrud(akeraWebApp) {
       if (err) {
         return self.error(err, res);
       }
-      
+
       var table = req.params.db + '.' + req.params.table;
       var filter = f.rowid(table, req.params.id);
 
@@ -365,16 +364,16 @@ function AkeraRestCrud(akeraWebApp) {
       if (err) {
         return self.error(err, res);
       }
-      
+
       var db = req.params.db;
       var table = req.params.table;
       self.getPk(conn, db, table, function(err, pk) {
         if (err) {
           return self.error(err, res);
         }
-        
+
         self._delete(conn, db + '.' + table, self
-            .getPkFilter(pk, req.params[0]), res);
+          .getPkFilter(pk, req.params[0]), res);
       });
     });
   };
@@ -384,7 +383,7 @@ function AkeraRestCrud(akeraWebApp) {
       if (err) {
         return self.error(err, res);
       }
-      
+
       var table = req.params.db + '.' + req.params.table;
       var filter = f.rowid(table, req.params.id);
 
@@ -398,7 +397,7 @@ function AkeraRestCrud(akeraWebApp) {
       if (err) {
         return self.error(err, res);
       }
-      
+
       try {
         var qry = self._getQuery(conn, req);
         qry.count().then(function(rows) {
@@ -420,68 +419,71 @@ function AkeraRestCrud(akeraWebApp) {
   this.setupInterface = function(type, config, router) {
     type = type || 'rest';
     var self = this;
-    
-    switch (type) { // TODO: support rest and jsdo interfaces
-       case 'odata':
-          //TODO: implement odata support
-          break;
-       case 'jsdo':
-         //TODO: implement jsdo support
-         router.get(config.route + 'jsdo/metadata', jsdoBuilder.buildCatalog);
-         router.get(config.route + 'jsdo/metadata/:db', jsdoBuilder.buildCatalog);
-         router.get(config.route + 'jsdo/metadata/:db/:table', jsdoBuilder.buildCatalog);
-         break;
-       case 'rest':
-         router.get(config.route + 'metadata', self.getDatabases);
-         router.get(config.route + 'metadata/:db', self.getTables);
-         router.get(config.route + 'metadata/:db/:table', self.getFields);
-         router.get(config.route + 'metadata/:db/:table/index(es)?', self.getIndexes);
 
-         router.get(config.route + ':db/:table', self.doSelect);
-         router.get(config.route + ':db/:table/count', self.doCount);
-         router.get(config.route + ':db/:table/*', self.doSelect);
-         router.post(config.route + ':db/:table', self.doCreate);
-         router.put(config.route + ':db/:table/rowid/:id', self.doUpdateByRowid);
-         router.put(config.route + ':db/:table/*', self.doUpdate);
-         router['delete'](config.route + ':db/:table/rowid/:id',
-             self.doDeleteByRowid);
-         router['delete'](config.route + ':db/:table/*', self.doDelete);
-          break;
-       default:
-          throw new Error('Invalid api interface specified');
+    switch (type) {
+      case 'odata':
+        // TODO: implement odata support
+        break;
+      case 'jsdo':
+        var JSDOHandler = require('./jsdo/handler.js');
+        var jsdoHndl = new JSDOHandler();
+
+        router.get(config.route + 'jsdo/metadata', jsdoHndl.getCatalog);
+        router.get(config.route + 'jsdo/metadata/:db', jsdoHndl.getCatalog);
+        router.get(config.route + 'jsdo/metadata/:db/:table',
+          jsdoHndl.getCatalog);
+        break;
+      case 'rest':
+        router.get(config.route + 'metadata', self.getDatabases);
+        router.get(config.route + 'metadata/:db', self.getTables);
+        router.get(config.route + 'metadata/:db/:table', self.getFields);
+        router.get(config.route + 'metadata/:db/:table/index(es)?',
+          self.getIndexes);
+
+        router.get(config.route + ':db/:table', self.doSelect);
+        router.get(config.route + ':db/:table/count', self.doCount);
+        router.get(config.route + ':db/:table/*', self.doSelect);
+        router.post(config.route + ':db/:table', self.doCreate);
+        router.put(config.route + ':db/:table/rowid/:id', self.doUpdateByRowid);
+        router.put(config.route + ':db/:table/*', self.doUpdate);
+        router['delete'](config.route + ':db/:table/rowid/:id',
+          self.doDeleteByRowid);
+        router['delete'](config.route + ':db/:table/*', self.doDelete);
+        break;
+      default:
+        throw new Error('Invalid api interface specified');
     }
- };
- 
+  };
+
   this.init = function(config, router) {
     var self = this;
-    if (!router || !router.__app || typeof router.__app.require !== 'function') {
+    if (!router || !router.__app || typeof router.__app.require !== 'function')
+    {
       throw new Error('Invalid Akera web service router.');
     }
 
     config = config || {};
     akeraApp = router.__app;
     config.route = akeraApp.getRoute(config.route || '/rest/crud/');
+    config.serviceInterface = config.serviceInterface || 'rest';
 
     if (config.serviceInterface instanceof Array) {
-      if (config.serviceInterface.length === 0)
+      if (config.serviceInterface.length === 0) {
         self.setupInterface('rest', config, router);
-      else {
-        if (config.serviceInterface.indexOf('jsdo') >= 0)
-          self.setupInterface('jsdo', config, router);
-        if (config.serviceInterface.indexOf('odata') >= 0)
-          self.setupInterface('odata', config, router);
-        if (config.serviceInterface.indexOf('rest') >= 0)
-          self.setupInterface('rest', config, router);
+      } else {
+        for ( var srv in config.serviceInterface) {
+          self.setupInterface(config.serviceInterface[srv], config, router);
+        }
       }
     } else {
       self.setupInterface(config.serviceInterface, config, router);
     }
-    
+
   };
 
   if (akeraWebApp !== undefined) {
     throw new Error(
-        'Rest File service can only be mounted at the broker level.');
+      'Rest File service can only be mounted at the broker level.');
   }
 }
 

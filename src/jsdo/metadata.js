@@ -1,4 +1,8 @@
 var akera = require('akera-api');
+var async = require('async');
+var CacheManager = require('./cache.js');
+var cacheMngr = new CacheManager();
+
 var jsonAblMap = {
   character : 'string',
   blob : 'string',
@@ -7,37 +11,29 @@ var jsonAblMap = {
   logical : 'boolean',
   date : 'date',
   datetime : 'date',
-  datetimetz : 'date',
-  extent : 'array'
+  datetimetz : 'date'
 };
-var async = require('async');
-var CacheManager = require('./jsdo-cache.js');
-var cacheMgr = new CacheManager();
 
-function JSDOBuilder() {
+function JSDOCatalog() {
 
-  this.buildCatalog = function(req, res) {
-    var tableName = req.params.table;
-    var dbName = req.params.db;
-
+  this.getCatalog = function(dbName, tableName, broker, res) {
     var root = getRootNode();
 
     if (!tableName && !dbName) {
-      if (cacheMgr.rootLoaded()) {
-        root.services = cacheMgr.getAllServices();
+      if (cacheMngr.rootLoaded()) {
+        root.services = cacheMngr.getAllServices();
         return res.status(200).json(root);
       } else {
-        var broker = req.broker;
         akera.connect(broker).then(function(conn) {
           conn.getMetaData().allDatabases().then(function(dbs) {
             async.forEach(dbs, function(db, acb) {
               getDatabaseService(db, null, function(err, service) {
                 root.services.push(service);
-                cacheMgr.storeService(service);
+                cacheMngr.storeService(service);
                 acb(err);
               });
             }, function(err) {
-              cacheMgr.rootLoaded(true);
+              cacheMngr.rootLoaded(true);
               conn.disconnect().then(function() {
                 if (err) {
                   error(err, res);
@@ -53,29 +49,25 @@ function JSDOBuilder() {
           error(err, res);
         });
       }
-    } else if (dbName && !tableName) {
-      console.log(dbName);
-      var s = cacheMgr.getService(dbName + 'Service');
-      if (s && (cacheMgr.rootLoaded() || cacheMgr.isSvcFullyLoaded(s))) {
+
+      return;
+    }
+
+    if (!tableName) {
+      var s = cacheMngr.getService(dbName);
+      if (s && (cacheMngr.rootLoaded() || cacheMngr.isSvcFullyLoaded(s))) {
         root.services.push(s);
         return res.status(200).json(root);
       } else {
-        console.log('service %s is not cached or not fully loaded. loading from db', dbName + 'Service');
-        akera.connect(req.broker).then(function(conn) {
-          console.log('connected');
+        akera.connect(broker).then(function(conn) {
           conn.getMetaData().getDatabase(dbName).then(function(db) {
-            console.log('got database meta for %s', dbName);
             getDatabaseService(db, null, function(err, sv) {
-              console.log('got db service %s', sv.name);
-              console.log('error %s', err);
               if (err) {
                 error(err, res);
               } else {
                 root.services.push(sv);
-                cacheMgr.storeService(sv, true);
-                console.log('stored service %s', sv.name);
+                cacheMngr.storeService(sv, true);
                 conn.disconnect().then(function() {
-                  console.log('disconnected');
                   res.status(200).json(root);
                 });
               }
@@ -88,19 +80,20 @@ function JSDOBuilder() {
         });
       }
     } else {
-      var resource = cacheMgr.getTableResource(dbName + 'Service', tableName);
-      if (resource) {
-        root.services.push(cacheMgr.getService(dbName + 'Service', tableName));
+      var srvTable = cacheMngr.getService(dbName, tableName);
+
+      if (srvTable) {
+        root.services.push(srvTable);
         return res.status(200).json(root);
       } else {
-        akera.connect(req.broker).then(function(conn) {
+        akera.connect(broker).then(function(conn) {
           conn.getMetaData().getDatabase(dbName).then(function(db) {
             getDatabaseService(db, tableName, function(err, sv) {
               if (err) {
                 return error(err, res);
               } else {
                 root.services.push(sv);
-                cacheMgr.storeService(sv);
+                cacheMngr.storeService(sv);
                 conn.disconnect().then(function() {
                   res.status(200).json(root);
                 });
@@ -119,20 +112,20 @@ function JSDOBuilder() {
 
 function getRootNode() {
   return {
-    version : '1.0',
-    lastModified : new Date().toString(),
+    version : '1.3',
+    lastModified : cacheMngr.lastModified,
     services : []
   };
 }
 
 function getDatabaseService(db, table, cb) {
   var service = {
-    name : db.getName() + 'Service',
+    name : db.getName(),
     address : '\/' + db.getName(),
     useRequest : true,
     resources : []
   };
-  console.log(table);
+
   if (table && typeof (table) === 'string') {
     db.getTable(table).then(function(tblMeta) {
       getTableResource(tblMeta, function(err, r) {
@@ -192,12 +185,13 @@ function getTableResource(table, cb) {
             fields,
             function(field, ccb) {
               var prop = {
-                type : jsonAblMap[field.type],
+                type : field.extent > 1 ? 'array' : jsonAblMap[field.type],
                 title : field.label,
                 format : field.format,
                 ablType : field.type,
                 required : field.mandatory
               };
+
               if (prop.type === 'array') {
                 prop.maxItems = field.extent;
                 prop.items = {
@@ -229,4 +223,4 @@ function error(err, res) {
   } : err);
 }
 
-module.exports = JSDOBuilder;
+module.exports = JSDOCatalog;
