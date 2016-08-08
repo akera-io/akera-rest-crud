@@ -148,72 +148,126 @@ function getDatabaseService(db, table, cb) {
 }
 
 function getTableResource(table, cb) {
-  var resource = {
-    name : table.getName(),
-    path : '\/' + table.getName(),
-    displayName : table.getName(),
-    schema : {
-      type : 'object',
-      additionalProperties : false,
-      properties : {
+  getPkHttpSuffix(
+    table,
+    function(err, suffix) {
+      if (err) {
+        return cb(err);
+      } else {
+        var resource = {
+          name : table.getName(),
+          path : '\/' + table.getName(),
+          displayName : table.getName(),
+          schema : {
+            type : 'object',
+            additionalProperties : false,
+            properties : {
 
-      }
-    }
-  };
+            }
+          },
+          operations : [ {
+            path : '?filter={filter}',
+            type : 'read',
+            verb : 'get',
+            params : []
+          }, {
+            path : '',
+            useBeforeImage : false,
+            type : 'create',
+            verb : 'post',
+            params : [ {
+              name : table.getName(),
+              type : 'REQUEST_BODY,RESPONSE_BODY'
+            } ]
+          }, {
+            path : suffix,
+            useBeforeImage : false,
+            type : 'update',
+            verb : 'put',
+            params : [ {
+              name : table.getName(),
+              type : 'REQUEST_BODY,RESPONSE_BODY'
+            } ]
+          }, {
+            path : '',
+            useBeforeImage : false,
+            type : 'delete',
+            verb : 'delete',
+            params : [ {
+              name : table.getName(),
+              type : 'REQUEST_BODY,RESPONSE_BODY'
+            } ]
+          } ]
+        };
 
-  resource.schema.properties[table.getName()] = {
-    type : 'array',
-    items : {
-      additionalProperties : false,
-      properties : {
-        _id : {
-          type : 'string'
-        },
-        _errorString : {
-          type : 'string'
-        }
-      }
-    }
-  };
-
-  table
-    .getAllFields()
-    .then(
-      function(fields) {
-        async
-          .forEach(
-            fields,
-            function(field, ccb) {
-              var prop = {
-                type : field.extent > 1 ? 'array' : jsonAblMap[field.type],
-                title : field.label,
-                format : field.format,
-                ablType : field.type,
-                required : field.mandatory
-              };
-
-              if (prop.type === 'array') {
-                prop.maxItems = field.extent;
-                prop.items = {
-                  type : prop.type
-                };
+        resource.schema.properties[table.getName()] = {
+          type : 'array',
+          items : {
+            additionalProperties : false,
+            properties : {
+              _id : {
+                type : 'string'
+              },
+              _errorString : {
+                type : 'string'
               }
-              resource.schema.properties[table.getName()].items.properties[field.name] = prop;
-              ccb();
-            },
-            function() {
-              table
-                .getPk()
-                .then(
-                  function(pkFields) {
-                    resource.schema.properties[table.getName()].primaryKey = pkFields.fields
-                      .map(function(pkFld) {
-                        return pkFld.name;
-                      });
-                    cb(null, resource);
-                  }, cb);
-            });
-      }, cb);
+            }
+          }
+        };
+
+        table
+          .getAllFields()
+          .then(
+            function(fields) {
+              async
+                .forEach(
+                  fields,
+                  function(field, ccb) {
+                    var prop = {
+                      type : field.extent > 1 ? 'array'
+                        : jsonAblMap[field.type],
+                      title : field.label,
+                      format : field.format,
+                      ablType : field.type,
+                      required : field.mandatory
+                    };
+
+                    if (prop.type === 'array') {
+                      prop.maxItems = field.extent;
+                      prop.items = {
+                        type : prop.type
+                      };
+                    }
+                    resource.schema.properties[table.getName()].items.properties[field.name] = prop;
+                    ccb();
+                  },
+                  function() {
+                    table
+                      .getPk()
+                      .then(
+                        function(pkFields) {
+                          resource.schema.properties[table.getName()].primaryKey = pkFields.fields
+                            .map(function(pkFld) {
+                              return pkFld.name;
+                            });
+                          cb(null, resource);
+                        }, cb);
+                  });
+            }, cb);
+      }
+
+    });
+
+}
+
+function getPkHttpSuffix(table, cb) {
+  table.getPk().then(function(pks) {
+    var httpSuffix = '/';
+    pks.fields.forEach(function(pk) {
+      httpSuffix += '{' + pk.name + '}/';
+    });
+    cb(null, httpSuffix);
+  }, cb);
 }
 
 function error(err, res) {

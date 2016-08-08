@@ -280,8 +280,8 @@ function AkeraRestCrud(akeraWebApp) {
   };
 
   this._update = function(conn, table, filter, data, res) {
-
     try {
+      delete data._id; //in case request was on jsdo interface, field _id will not be valid
       conn.query.update(table).where(filter).set(data).fetch().then(
         function(rows) {
           conn.disconnect();
@@ -318,9 +318,8 @@ function AkeraRestCrud(akeraWebApp) {
         if (err) {
           return self.error(err, res);
         }
-
         self._update(conn, db + '.' + table, self
-          .getPkFilter(pk, req.params[0]), req.body);
+          .getPkFilter(pk, req.params[0]), req.body, res);
       });
     });
   };
@@ -433,6 +432,9 @@ function AkeraRestCrud(akeraWebApp) {
         router.get(config.route + 'jsdo/metadata/:db/:table',
           jsdoHndl.getCatalog);
         router.get(config.route + 'jsdo/:db/:table', self.doSelect);
+        router.post(config.route + 'jsdo/:db/:table', self.doCreate);
+        router.put(config.route + 'jsdo/:db/:table/*', self.doUpdate);
+        router['delete'](config.route + 'jsdo/:db/:table', self.doDelete);
         break;
       case 'rest':
         router.get(config.route + 'metadata', self.getDatabases);
