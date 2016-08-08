@@ -434,7 +434,7 @@ function AkeraRestCrud(akeraWebApp) {
         router.get(config.route + 'jsdo/:db/:table', self.doSelect);
         router.post(config.route + 'jsdo/:db/:table', self.doCreate);
         router.put(config.route + 'jsdo/:db/:table/*', self.doUpdate);
-        router['delete'](config.route + 'jsdo/:db/:table', self.doDelete);
+        router['delete'](config.route + 'jsdo/:db/:table/*', self.doDelete);
         break;
       case 'rest':
         router.get(config.route + 'metadata', self.getDatabases);

@@ -189,14 +189,11 @@ function getTableResource(table, cb) {
               type : 'REQUEST_BODY,RESPONSE_BODY'
             } ]
           }, {
-            path : '',
+            path : suffix,
             useBeforeImage : false,
             type : 'delete',
             verb : 'delete',
-            params : [ {
-              name : table.getName(),
-              type : 'REQUEST_BODY,RESPONSE_BODY'
-            } ]
+            params : []
           } ]
         };
 
