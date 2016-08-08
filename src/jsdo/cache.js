@@ -10,20 +10,26 @@ function JSDOCacheManager() {
   };
 
   this.getService = function(svName, tableName) {
-    var service = _services && _services.filter(function(srv) {
+   var service;
+   
+    var filteredServices = _services.filter(function(srv) {
       return srv.name === svName;
     });
-
+    
+    if (filteredServices.length === 1) {
+      service = filteredServices[0];
+    }
+    
     if (service) {
       if (!tableName) {
-        return s;
+        return service;
       } else {
-        var sTable = s.resources.filter(function(res) {
+        var sTable = service.resources.filter(function(res) {
           return res.name === tableName;
         });
 
         if (sTable) {
-          var sCopy = clone(s);
+          var sCopy = clone(service);
           sCopy.resources = sTable;
           return sCopy;
         }
@@ -55,7 +61,7 @@ function JSDOCacheManager() {
   this.getTableResource = function(svName, tableName) {
     var s = this.getService(svName);
     if (s) {
-      return s.resources.filter(function(resource) {
+      return s.resources && s.resources.filter(function(resource) {
         return resource.name === tableName;
       });
     }
@@ -84,7 +90,7 @@ function JSDOCacheManager() {
           return res.name === newRes.name;
         }))
         {
-          service1.respources.push(newRes);
+          service1.resources.push(newRes);
         }
       });
     }

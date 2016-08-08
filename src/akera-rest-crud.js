@@ -432,6 +432,7 @@ function AkeraRestCrud(akeraWebApp) {
         router.get(config.route + 'jsdo/metadata/:db', jsdoHndl.getCatalog);
         router.get(config.route + 'jsdo/metadata/:db/:table',
           jsdoHndl.getCatalog);
+        router.get(config.route + 'jsdo/:db/:table', self.doSelect);
         break;
       case 'rest':
         router.get(config.route + 'metadata', self.getDatabases);
@@ -471,8 +472,15 @@ function AkeraRestCrud(akeraWebApp) {
       if (config.serviceInterface.length === 0) {
         self.setupInterface('rest', config, router);
       } else {
-        for ( var srv in config.serviceInterface) {
-          self.setupInterface(config.serviceInterface[srv], config, router);
+        //Service interfaces need to be configured in order, otherwise path mappings will conflict
+        if (config.serviceInterface.indexOf('jsdo') >= 0) {
+          self.setupInterface('jsdo', config, router);
+        }
+        if (config.serviceInterface.indexOf('odata') >= 0) {
+          self.setupInterface('odata', config, router);
+        }
+        if (config.serviceInterface.indexOf('rest') >= 0) {
+          self.setupInterface('rest', config, router);
         }
       }
     } else {
