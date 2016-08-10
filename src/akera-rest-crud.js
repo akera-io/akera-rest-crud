@@ -247,45 +247,44 @@ function AkeraRestCrud(akeraWebApp) {
     });
   };
 
-  this.doCreate = function(req, res) {
+  this._create = function(req, cb) {
     self.connect(req.broker, function(err, conn) {
       if (err) {
-        return self.error(err, res);
+        return cb(err);
       }
-
+      
       try {
         var table = req.params.db + '.' + req.params.table;
 
         conn.query.insert(table).set(req.body).fetch().then(function(row) {
           conn.disconnect();
-          res.status(200).send(row);
+          cb(null, row);
         })['catch'](function(err) {
           conn.disconnect();
-          self.error(err, res);
+          cb(err);
         });
       } catch (e) {
         conn.disconnect();
-        self.error(e, res);
+        cb(e);
       }
+    });
+  };
+  
+  this.doCreate = function(req, res) {
+    self._create(req, function(err, row) {
+      if (err) {
+        return self.error(err, res);
+      }      
+      res.status(200).send(row);
     });
   };
 
   this._update = function(conn, table, filter, data, res) {
     try {
-      delete data._id; //in case request was on jsdo interface, field _id will not be valid
       conn.query.update(table).where(filter).set(data).fetch().then(
         function(rows) {
           conn.disconnect();
-          switch (rows.length) {
-            case 0:
-              res.status(404).send();
-              break;
-            case 1:
-              res.status(200).send(rows[0]);
-              break;
-            default:
-              res.status(200).send(rows);
-          }
+          res.status(200).send(rows);
         })['catch'](function(err) {
         conn.disconnect();
         self.error(err, res);
@@ -294,7 +293,6 @@ function AkeraRestCrud(akeraWebApp) {
       conn.disconnect();
       self.error(e, res);
     }
-
   };
 
   this.doUpdate = function(req, res) {
@@ -423,8 +421,8 @@ function AkeraRestCrud(akeraWebApp) {
         router.get(config.route + 'jsdo/metadata/:db/:table',
           jsdoHndl.getCatalog);
         router.get(config.route + 'jsdo/:db/:table', jsdoHndl.doSelect);
-        router.post(config.route + 'jsdo/:db/:table', self.doCreate);
-        router.put(config.route + 'jsdo/:db/:table/*', self.doUpdate);
+        router.post(config.route + 'jsdo/:db/:table', jsdoHndl.doCreate);
+        router.put(config.route + 'jsdo/:db/:table/*', jsdoHndl.doUpdate);
         router['delete'](config.route + 'jsdo/:db/:table/*', self.doDelete);
         break;
       case 'rest':

@@ -24,6 +24,25 @@ function JSDOHandler(restHandler) {
     self.restHandler.doSelect(req, res);
   };
 
+  this.doCreate = function(req, res) {
+    if (req.body) {
+      delete req.body._id;
+    }
+    self.restHandler._create(req, function(err, row) {
+      if (err) {
+        return self.restHandler.error(err, res);
+      }
+      res.status(200).send([ row ]);
+    });
+  };
+
+  this.doUpdate = function(req, res) {
+    if (req.body) {
+      delete req.body._id;
+    }
+    self.restHandler.doUpdate(req, res);
+  };
+
   this.filter = {
     fromKendo : function(kendoFilter) {
       return {
