@@ -3,7 +3,6 @@ module.exports = AkeraRestCrud;
 var akeraApi = require('akera-api');
 var f = akeraApi.query.filter;
 var akeraApp = null;
-var filterConverter = require('./jsdo/filter.js');
 
 function AkeraRestCrud(akeraWebApp) {
   var self = this;
@@ -169,17 +168,7 @@ function AkeraRestCrud(akeraWebApp) {
     }
 
     var qry = conn.query.select(table).fields();
-    var filter = req.query.filter || req.query.jsdoFilter || {};
-
-    if (req.query.jsdoFilter) {
-     var jsdoFilter = filterConverter.fromKendo(filter);
-     console.log(JSON.stringify(jsdoFilter, null, '\t'));
-     if (pkFilter) {
-       pkFilter.and.push(jsdoFilter);
-     } 
-     qry = qry.where(pkFilter || jsdoFilter);
-     return qry;
-    }
+    var filter = req.query.filter || {};
     
     if (typeof filter === 'string') {
       try {
@@ -436,13 +425,13 @@ function AkeraRestCrud(akeraWebApp) {
         break;
       case 'jsdo':
         var JSDOHandler = require('./jsdo/handler.js');
-        var jsdoHndl = new JSDOHandler();
+        var jsdoHndl = new JSDOHandler(self);
 
         router.get(config.route + 'jsdo/metadata', jsdoHndl.getCatalog);
         router.get(config.route + 'jsdo/metadata/:db', jsdoHndl.getCatalog);
         router.get(config.route + 'jsdo/metadata/:db/:table',
           jsdoHndl.getCatalog);
-        router.get(config.route + 'jsdo/:db/:table', self.doSelect);
+        router.get(config.route + 'jsdo/:db/:table', jsdoHndl.doSelect);
         router.post(config.route + 'jsdo/:db/:table', self.doCreate);
         router.put(config.route + 'jsdo/:db/:table/*', self.doUpdate);
         router['delete'](config.route + 'jsdo/:db/:table/*', self.doDelete);
