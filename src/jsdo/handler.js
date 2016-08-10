@@ -1,9 +1,6 @@
 var JSDOCatalog = require('./metadata.js');
 var metadata = new JSDOCatalog();
 
-/*
- * var operatorMap = { neq : 'ne', gte : 'ge', lte : 'le', contains : 'like' };
- */
 function JSDOHandler(restHandler) {
 
   var self = this;
@@ -22,8 +19,8 @@ function JSDOHandler(restHandler) {
       return self.restHandler.doSelect(req, res);
     }
     var restFilter = self.filter.fromKendo(req.query.jsdoFilter);
-    console.log(JSON.stringify(restFilter, null, '\t'));
     req.query.filter = JSON.stringify(restFilter);
+    delete req.query.jsdoFilter;
     self.restHandler.doSelect(req, res);
   };
 
@@ -41,7 +38,9 @@ function getClauseFromKendo(flt) {
   var clause = {};
   switch (flt.operator) {
     case 'eq':
-      clause[flt.field] = flt.value;
+      clause[flt.field] = {
+        eq : flt.value
+      };
       break;
     case 'neq':
       clause[flt.field] = {
@@ -70,17 +69,25 @@ function getClauseFromKendo(flt) {
       break;
     case 'contains':
       clause[flt.field] = {
-        like : '*' + flt.value + '*'
+        matches : '*' + flt.value + '*'
       };
       break;
+    case 'doesnotcontain': {
+      clause[flt.field] = {
+        not : {
+          matches : '*' + flt.value + '*'
+        }
+      };
+      break;
+    }
     case 'startswith':
       clause[flt.field] = {
-        like : flt.value + '*'
+        matches : flt.value + '*'
       };
       break;
     case 'endswith':
       clause[flt.field] = {
-        like : '*' + flt.value
+        matches : '*' + flt.value
       };
       break;
     default:
@@ -92,7 +99,6 @@ function getClauseFromKendo(flt) {
 
 function convertKendoFilter(filter) {
   var restFilter = {};
-  // TODO: fix filter 'eq' operator bug
   if (typeof (filter) === 'string') {
     filter = JSON.parse(filter);
   }
@@ -113,4 +119,5 @@ function convertKendoFilter(filter) {
 
   return restFilter;
 }
+
 module.exports = JSDOHandler;

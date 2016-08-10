@@ -237,16 +237,7 @@ function AkeraRestCrud(akeraWebApp) {
         } else {
           qry.all().then(function(rows) {
             conn.disconnect();
-            switch (rows.length) {
-              case 0:
-                res.status(404).send();
-                break;
-              case 1:
-                res.status(200).send(rows[0]);
-                break;
-              default:
-                res.status(200).send(rows);
-            }
+            res.status(200).send(rows);
           })['catch'](function(err) {
             conn.disconnect();
             self.error(err, res);
