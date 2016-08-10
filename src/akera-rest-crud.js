@@ -3,6 +3,7 @@ module.exports = AkeraRestCrud;
 var akeraApi = require('akera-api');
 var f = akeraApi.query.filter;
 var akeraApp = null;
+var filterConverter = require('./jsdo/filter.js');
 
 function AkeraRestCrud(akeraWebApp) {
   var self = this;
@@ -168,8 +169,18 @@ function AkeraRestCrud(akeraWebApp) {
     }
 
     var qry = conn.query.select(table).fields();
-    var filter = req.query.filter || {};
+    var filter = req.query.filter || req.query.jsdoFilter || {};
 
+    if (req.query.jsdoFilter) {
+     var jsdoFilter = filterConverter.fromKendo(filter);
+     console.log(JSON.stringify(jsdoFilter, null, '\t'));
+     if (pkFilter) {
+       pkFilter.and.push(jsdoFilter);
+     } 
+     qry = qry.where(pkFilter || jsdoFilter);
+     return qry;
+    }
+    
     if (typeof filter === 'string') {
       try {
         filter = JSON.parse(filter);

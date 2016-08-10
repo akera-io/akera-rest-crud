@@ -166,7 +166,7 @@ function getTableResource(table, cb) {
             }
           },
           operations : [ {
-            path : '?filter={filter}',
+            path : '?jsdoFilter={filter}',
             type : 'read',
             verb : 'get',
             params : []
