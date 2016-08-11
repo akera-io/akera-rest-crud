@@ -7,11 +7,16 @@ function JSDOHandler(restHandler) {
 
   this.restHandler = restHandler;
 
+  this.asDataset = function(asDataset) {
+    this.asDataset = asDataset || false;
+  };
+
   this.getCatalog = function(req, res) {
     var tableName = req.params.table;
     var dbName = req.params.db;
 
-    metadata.getCatalog(dbName, tableName, req.broker, res);
+    metadata.getCatalog(dbName, tableName, self.asDataset === true, req.broker,
+      res);
   };
 
   this.doSelect = function(req, res) {
@@ -59,19 +64,39 @@ function JSDOHandler(restHandler) {
 
     sanitizeQueryString(req);
 
-    self.restHandler.doSelect(req, res);
+    self.restHandler._select(req, function(err, rows) {
+      if (err) {
+        return self.restHandler.error(err);
+      }
+      if (self.asDataset === true) {
+        var ds = {};
+        ds['ds' + req.params.table] = {
+
+        };
+        ds['ds' + req.params.table]['tt' + req.params.table] = rows;
+
+        return res.status(200).json(ds);
+      }
+      res.status(200).json(rows);
+    });
   };
 
   this.doCreate = function(req, res) {
     if (req.body) {
       delete req.body._id;
+      req.body = self.asDataset === true ? getDataFromDataset(req) : req.body;
+      self.restHandler._create(req, function(err, row) {
+        if (err) {
+          return self.restHandler.error(err, res);
+        }
+        return res.status(200)
+          .json(
+            self.asDataset === true ? formatResponseAsDataset(req, row)
+              : [ row ]);
+      });
+    } else {
+      res.status(400).end();
     }
-    self.restHandler._create(req, function(err, row) {
-      if (err) {
-        return self.restHandler.error(err, res);
-      }
-      res.status(200).send([ row ]);
-    });
   };
 
   this.doUpdate = function(req, res) {
@@ -99,6 +124,20 @@ function JSDOHandler(restHandler) {
 
 }
 
+function getDataFromDataset(req) {
+  var tts = req.body['tt' + req.params.table];
+  if (tts instanceof Array) {
+    tts = tts[0];
+  }
+  delete tts._id;
+  return tts;
+}
+function formatResponseAsDataset(req, row) {
+  var ttRet = {};
+  ttRet['ds' + req.params.table] = {};
+  ttRet['ds' + req.params.table]['tt' + req.params.table] = [ row ];
+  return ttRet;
+}
 function sanitizeQueryString(req) {
   delete req.query.jsdoFilter;
   delete req.query.top;

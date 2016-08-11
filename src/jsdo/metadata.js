@@ -16,7 +16,9 @@ var jsonAblMap = {
 
 function JSDOCatalog() {
 
-  this.getCatalog = function(dbName, tableName, broker, res) {
+  this.getCatalog = function(dbName, tableName, asDataset, broker, res) {
+    console.log('getting metadata');
+    console.log(asDataset);
     var root = getRootNode();
 
     if (!tableName && !dbName) {
@@ -27,7 +29,7 @@ function JSDOCatalog() {
         akera.connect(broker).then(function(conn) {
           conn.getMetaData().allDatabases().then(function(dbs) {
             async.forEach(dbs, function(db, acb) {
-              getDatabaseService(db, null, function(err, service) {
+              getDatabaseService(db, null, asDataset, function(err, service) {
                 root.services.push(service);
                 cacheMngr.storeService(service);
                 acb(err);
@@ -61,7 +63,7 @@ function JSDOCatalog() {
       } else {
         akera.connect(broker).then(function(conn) {
           conn.getMetaData().getDatabase(dbName).then(function(db) {
-            getDatabaseService(db, null, function(err, sv) {
+            getDatabaseService(db, null, asDataset, function(err, sv) {
               if (err) {
                 error(err, res);
               } else {
@@ -88,7 +90,7 @@ function JSDOCatalog() {
       } else {
         akera.connect(broker).then(function(conn) {
           conn.getMetaData().getDatabase(dbName).then(function(db) {
-            getDatabaseService(db, tableName, function(err, sv) {
+            getDatabaseService(db, tableName, asDataset, function(err, sv) {
               if (err) {
                 return error(err, res);
               } else {
@@ -118,7 +120,7 @@ function getRootNode() {
   };
 }
 
-function getDatabaseService(db, table, cb) {
+function getDatabaseService(db, table, asDataset, cb) {
   var service = {
     name : db.getName(),
     address : '\/' + db.getName(),
@@ -128,7 +130,7 @@ function getDatabaseService(db, table, cb) {
 
   if (table && typeof (table) === 'string') {
     db.getTable(table).then(function(tblMeta) {
-      getTableResource(tblMeta, function(err, r) {
+      getTableResource(tblMeta, asDataset, function(err, r) {
         service.resources.push(r);
         cb(null, service);
       }, cb);
@@ -136,7 +138,7 @@ function getDatabaseService(db, table, cb) {
   } else {
     db.allTables().then(function(tbls) {
       async.forEach(tbls, function(table, bcb) {
-        getTableResource(table, function(err, r) {
+        getTableResource(table, asDataset, function(err, r) {
           service.resources.push(r);
           bcb(err);
         });
@@ -147,9 +149,9 @@ function getDatabaseService(db, table, cb) {
   }
 }
 
-function getTableResource(table, cb) {
+function getTableResource(table, asDataset, cb) {
   getPkHttpSuffix(
-    table,
+    table, asDataset,
     function(err, suffix) {
       if (err) {
         return cb(err);
@@ -176,7 +178,7 @@ function getTableResource(table, cb) {
             type : 'create',
             verb : 'post',
             params : [ {
-              name : table.getName(),
+              name : asDataset ? 'ds' + table.getName() : table.getName(),
               type : 'REQUEST_BODY,RESPONSE_BODY'
             } ]
           }, {
@@ -185,7 +187,7 @@ function getTableResource(table, cb) {
             type : 'update',
             verb : 'put',
             params : [ {
-              name : table.getName(),
+              name : asDataset ? 'ds' + table.getName() : table.getName(),
               type : 'REQUEST_BODY,RESPONSE_BODY'
             } ]
           }, {
@@ -196,33 +198,61 @@ function getTableResource(table, cb) {
             params : []
           }, {
             path : '/count?filter={filter}',
-            name: 'count',
-            type: 'invoke',
-            verb: 'get',
-            useBeforeImage: false,
-            params: [{
-              name: 'num',
-              type: 'RESPONSE_BODY',
-              xType: 'number'
-            }]
-          }]
+            name : 'count',
+            type : 'invoke',
+            verb : 'get',
+            useBeforeImage : false,
+            params : [ {
+              name : 'num',
+              type : 'RESPONSE_BODY',
+              xType : 'number'
+            } ]
+          } ]
         };
 
-        resource.schema.properties[table.getName()] = {
-          type : 'array',
-          items : {
+        if (asDataset === true) {
+          resource.schema.properties['ds' + table.getName()] = {
+            type : 'object',
             additionalProperties : false,
             properties : {
-              _id : {
-                type : 'string'
-              },
-              _errorString : {
-                type : 'string'
+             
+            }
+          };
+          resource.schema.properties['ds' + table.getName()].properties['tt'
+            + table.getName()] = {
+            type : 'array',
+            items : {
+              additionalProperties : false,
+              properties : {
+                _id : {
+                  type : 'string'
+                },
+                errorString : {
+                  type : 'string'
+                }
               }
             }
-          }
-        };
-
+          };
+        } else {
+          resource.schema.properties[table.getName()] = {
+            type : 'array',
+            items : {
+              additionalProperties : false,
+              properties : {
+                _id : {
+                  type : 'string'
+                },
+                _errorString : {
+                  type : 'string'
+                }
+              }
+            }
+          };
+        }
+        var tableNode = asDataset ? resource.schema.properties['ds'
+          + table.getName()].properties['tt' + table.getName()]
+          : resource.schema.properties[table.getName()];
+          console.log(resource.schema);
         table
           .getAllFields()
           .then(
@@ -246,7 +276,7 @@ function getTableResource(table, cb) {
                         type : prop.type
                       };
                     }
-                    resource.schema.properties[table.getName()].items.properties[field.name] = prop;
+                    tableNode.items.properties[field.name] = prop;
                     ccb();
                   },
                   function() {
@@ -254,7 +284,7 @@ function getTableResource(table, cb) {
                       .getPk()
                       .then(
                         function(pkFields) {
-                          resource.schema.properties[table.getName()].primaryKey = pkFields.fields
+                          tableNode.primaryKey = pkFields.fields
                             .map(function(pkFld) {
                               return pkFld.name;
                             });
@@ -268,12 +298,16 @@ function getTableResource(table, cb) {
 
 }
 
-function getPkHttpSuffix(table, cb) {
+function getPkHttpSuffix(table, asDataset, cb) {
+  if (asDataset === true) {
+    return cb(null, '');
+  }
   table.getPk().then(function(pks) {
     var httpSuffix = '/';
     pks.fields.forEach(function(pk) {
       httpSuffix += '{' + pk.name + '}/';
     });
+    console.log(httpSuffix);
     cb(null, httpSuffix);
   }, cb);
 }

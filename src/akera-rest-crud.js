@@ -231,7 +231,7 @@ function AkeraRestCrud(akeraWebApp) {
     }
   };
 
-  this.doSelect = function(req, res) {
+  this._select = function(req, cb) {
     self.connect(req.broker, function(err, conn) {
       if (err) {
         return self.error(err, res);
@@ -240,17 +240,26 @@ function AkeraRestCrud(akeraWebApp) {
       self.getQuery(conn, req, function(err, qry) {
         if (err) {
           conn.disconnect();
-          self.error(err, res);
+          cb(err);
         } else {
           qry.all().then(function(rows) {
             conn.disconnect();
-            res.status(200).send(rows);
+            cb(null, rows);
           })['catch'](function(err) {
             conn.disconnect();
-            self.error(err, res);
+            cb(err);
           });
         }
       });
+    });
+  };
+  
+  this.doSelect = function(req, res) {
+    this._select(req, function(err, rows) {
+      if (err) {
+        return self.error(err, res);
+      }
+      res.status(200).send(rows);
     });
   };
 
@@ -422,7 +431,9 @@ function AkeraRestCrud(akeraWebApp) {
       case 'jsdo':
         var JSDOHandler = require('./jsdo/handler.js');
         var jsdoHndl = new JSDOHandler(self);
-
+        if (config.jsdo && config.jsdo.asDataset === true) {
+          jsdoHndl.asDataset(true);
+        }
         router.get(config.route + 'jsdo/metadata', jsdoHndl.getCatalog);
         router.get(config.route + 'jsdo/metadata/:db', jsdoHndl.getCatalog);
         router.get(config.route + 'jsdo/metadata/:db/:table',
