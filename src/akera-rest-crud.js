@@ -167,24 +167,27 @@ function AkeraRestCrud(akeraWebApp) {
       pkFilter = self.getPkFilter(pk, req.params[0]);
     }
 
-    var qry = conn.query.select(table).fields();
-    var filter = req.query.filter || {};
+    var qry = conn.query.select(table);
+    var filter = req.query.filter;
     
     if (typeof filter === 'string') {
       try {
         filter = JSON.parse(filter);
-
-        if (filter.where && pkFilter) {
-          pkFilter.and.push(filter.where);
-          filter.where = pkFilter;
-        }
       } catch (err) {
         throw new Error('Invalid query filter.');
       }
     }
 
-    if (pkFilter && !filter.where) {
-      filter.where = pkFilter;
+    if (pkFilter) {
+      if (typeof filter === 'object') {
+        if (filter.where) {
+          pkFilter.and.push(filter.where);
+        } 
+        
+        filter.where = pkFilter;
+      } else {
+        filter = {where: pkFilter};
+      }
     }
 
     if (typeof filter === 'object') {
