@@ -166,7 +166,7 @@ function getTableResource(table, cb) {
             }
           },
           operations : [ {
-            path : '?jsdoFilter={filter}',
+            path : '?jsdoFilter={filter}&sort={sort}&skip={skip}&top={top}',
             type : 'read',
             verb : 'get',
             params : []
@@ -194,7 +194,18 @@ function getTableResource(table, cb) {
             type : 'delete',
             verb : 'delete',
             params : []
-          } ]
+          }, {
+            path : '/count?filter={filter}',
+            name: 'count',
+            type: 'invoke',
+            verb: 'get',
+            useBeforeImage: false,
+            params: [{
+              name: 'num',
+              type: 'RESPONSE_BODY',
+              xType: 'number'
+            }]
+          }]
         };
 
         resource.schema.properties[table.getName()] = {

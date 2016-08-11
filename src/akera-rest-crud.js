@@ -170,9 +170,9 @@ function AkeraRestCrud(akeraWebApp) {
     var qry = conn.query.select(table);
     var filter = req.query.filter;
     
-    if (typeof filter === 'string') {
+    if (typeof filter === 'string' && filter !== '') {
       try {
-        filter = JSON.parse(filter);
+        filter = JSON.parse(filter.trim());
       } catch (err) {
         throw new Error('Invalid query filter.');
       }
@@ -193,7 +193,11 @@ function AkeraRestCrud(akeraWebApp) {
     if (typeof filter === 'object') {
       for ( var key in filter) {
         if (typeof qry[key] === 'function') {
-          qry[key](filter[key]);
+          if (key === 'by') {
+            qry.by(filter.by.field, filter.by.descending === true);
+          } else {
+            qry[key](filter[key]);
+          }
         } else {
           throw new Error('Invalid filter option: ' + key);
         }
@@ -427,6 +431,7 @@ function AkeraRestCrud(akeraWebApp) {
         router.post(config.route + 'jsdo/:db/:table', jsdoHndl.doCreate);
         router.put(config.route + 'jsdo/:db/:table/*', jsdoHndl.doUpdate);
         router['delete'](config.route + 'jsdo/:db/:table/*', self.doDelete);
+        router.get(config.route + 'jsdo/:db/:table/count', jsdoHndl.doCount);
         break;
       case 'rest':
         router.get(config.route + 'metadata', self.getDatabases);

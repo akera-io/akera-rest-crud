@@ -15,12 +15,50 @@ function JSDOHandler(restHandler) {
   };
 
   this.doSelect = function(req, res) {
-    if (!req.query.jsdoFilter) {
+    if ((!req.query.jsdoFilter || req.query.jsdoFilter === '')
+      && (!req.query.top || req.query.top === '')
+      && (!req.query.skip || req.query.skip === '')
+      && (!req.query.sort || req.query.sort === ''))
+    {
+      sanitizeQueryString(req);
       return self.restHandler.doSelect(req, res);
     }
-    var restFilter = self.filter.fromKendo(req.query.jsdoFilter);
-    req.query.filter = JSON.stringify(restFilter);
-    delete req.query.jsdoFilter;
+
+    var filter = {};
+    if (req.query.jsdoFilter && req.query.jsdoFilter !== '') {
+      filter = self.filter.fromKendo(req.query.jsdoFilter);
+    }
+    if (req.query.top && req.query.top !== '') {
+      filter.limit = parseInt(req.query.top);
+    }
+    if (req.query.skip && req.query.skip !== '') {
+      filter.offset = parseInt(req.query.skip);
+    }
+
+    if (req.query.sort) {
+      if (typeof (req.query.sort) === 'string') {
+        try {
+          req.query.sort = JSON.parse(req.query.sort);
+        } catch (e) {}
+      }
+      if (req.query.sort instanceof Array) {
+        if (req.query.sort.length > 0) {
+          filter.by = {
+            field : req.query.sort[0].field,
+            descending : req.query.sort[0].dir !== 'asc'
+          };
+        }
+      } else if (req.query.sort !== '') {
+        filter.by = {
+          field : req.query.sort.field,
+          descending : req.query.sort.dir !== 'asc'
+        };
+      }
+    }
+    req.query.filter = filter;
+
+    sanitizeQueryString(req);
+
     self.restHandler.doSelect(req, res);
   };
 
@@ -43,6 +81,14 @@ function JSDOHandler(restHandler) {
     self.restHandler.doUpdate(req, res);
   };
 
+  this.doCount = function(req, res) {
+    if (!req.query.filter || req.query.filter === '') {
+      return self.restHandler.doCount(req, res);
+    }
+    req.query.filter = self.filter.fromKendo(req.query.filter);
+    self.restHandler.doCount(req, res);
+  };
+
   this.filter = {
     fromKendo : function(kendoFilter) {
       return {
@@ -51,6 +97,13 @@ function JSDOHandler(restHandler) {
     }
   };
 
+}
+
+function sanitizeQueryString(req) {
+  delete req.query.jsdoFilter;
+  delete req.query.top;
+  delete req.query.skip;
+  delete req.query.sort;
 }
 
 function getClauseFromKendo(flt) {
