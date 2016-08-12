@@ -1,27 +1,37 @@
 var JSDOCatalog = require('./metadata.js');
-var metadata = new JSDOCatalog();
+var rsvp = require('rsvp');
 
-function JSDOHandler(restHandler) {
+function JSDOHandler(akeraHandler) {
 
   var self = this;
 
-  this.restHandler = restHandler;
+  this.crudHandler = akeraHandler.getDataAccess();
+  this.akeraMetadata = akeraHandler.getMetaData();
+  this.metadata = new JSDOCatalog(this.akeraMetadata);
 
-  this.asDataset = function(asDataset) {
-    this.asDataset = asDataset || false;
+  this.init = function(router, config) {
+    router.get(config.route + 'jsdo/metadata', self.getCatalog);
+    router.get(config.route + 'jsdo/metadata/:db', self.getCatalog);
+    router.get(config.route + 'jsdo/metadata/:db/:table', self.getCatalog);
+    router.get(config.route + 'jsdo/:db/:table', self.doSelect);
+    router.post(config.route + 'jsdo/:db/:table', self.doCreate);
+    router.put(config.route + 'jsdo/:db/:table/*', self.doUpdate);
+    router.put(config.route + 'jsdo/:db/:table', self.doUpdate);
+    router['delete'](config.route + 'jsdo/:db/:table/*', self.doDelete);
+    router.get(config.route + 'jsdo/:db/:table/count', self.doCount);
+    self.asDataset = config.jsdo && config.jsdo.asDataset === true;
   };
 
   this.getCatalog = function(req, res) {
     var tableName = req.params.table;
     var dbName = req.params.db;
 
-    metadata.getCatalog(dbName, tableName, self.asDataset === true, req.broker,
-      function(err, catalog) {
-        if (err) {
-          return error(err, res);
-        }
-        res.status(200).json(catalog);
-      });
+    self.metadata.getCatalog(dbName, tableName, self.asDataset === true,
+      req.broker).then(function(catalog) {
+      res.status(200).json(catalog);
+    }, function(err) {
+      _error(err, res);
+    });
   };
 
   this.doSelect = function(req, res) {
@@ -65,226 +75,262 @@ function JSDOHandler(restHandler) {
         };
       }
     }
-    req.query.filter = filter;
 
-    sanitizeQueryString(req);
-
-    self.restHandler._select(req, function(err, rows) {
-      if (err) {
-        return self.restHandler.error(err);
-      }
-      if (self.asDataset === true) {
-        var ds = {};
-        ds['ds' + req.params.table] = {
-
-        };
-        ds['ds' + req.params.table]['tt' + req.params.table] = rows;
-
-        return res.status(200).json(ds);
-      }
-      res.status(200).json(rows);
-    });
+    if (!self.asDataset) {
+      _getPkFromQueryString(req).then(function(pkMap) {
+        return self.crudHandler.read(req.broker, pkMap, filter);
+      }).then(function(rows) {
+        _sendReadResponse(rows, req, res);
+      })['catch'](function(err) {
+        _error(err, res);
+      });
+    } else {
+      self.crudHandler.read(null, filter).then(function(rows) {
+        _sendReadResponse(rows, req, res);
+      }, function(err) {
+        _error(err, res);
+      });
+    }
   };
 
   this.doCreate = function(req, res) {
     if (req.body) {
       delete req.body._id;
-      req.body = self.asDataset === true ? getDataFromDataset(req) : req.body;
-      self.restHandler._create(req, function(err, row) {
-        if (err) {
-          return self.restHandler.error(err, res);
-        }
-        return res.status(200)
-          .json(
-            self.asDataset === true ? formatResponseAsDataset(req, row)
-              : [ row ]);
-      });
+      var newObject = self.asDataset === true ? _getDataFromDataset(req)
+        : req.body;
+      self.crudHandler.create(req.broker, req.params.table, newObject).then(
+        function(row) {
+          _sendReadResponse(row, req, res);
+        }, function(err) {
+          _error(err, res);
+        });
     } else {
-      res.status(400).end();
+      _error(new _error('No data provided'), res);
     }
   };
 
   this.doUpdate = function(req, res) {
     if (req.body) {
-
-      if (self.asDataset === true) {
-        setPksFromBeforeImage(req, function(err) {
-          if (err) {
-            return res.status(400).json({
-              message: err.message,
-              stack: err.stack
-            });
-          }
-          req.body = getUpdateDataFromDsUpdate(req);
-          console.log(req.params);
-          console.log(req.body);
-          self.restHandler.doUpdate(req,res);
-        });
-      } else {
-        delete req.body._id;
-        self.restHandler._update(req.params.db + '.' + req.params.table, self.restHandler.getPkFilter(req), req.body)
-      }
-    }
-
-  };
-
-  this.doCount = function(req, res) {
-    if (!req.query.filter || req.query.filter === '') {
-      return self.restHandler.doCount(req, res);
-    }
-    req.query.filter = self.filter.fromKendo(req.query.filter);
-    self.restHandler.doCount(req, res);
-  };
-
-  this.filter = {
-    fromKendo : function(kendoFilter) {
-      return {
-        where : convertKendoFilter(kendoFilter)
-      };
-    }
-  };
-
-}
-
-function getUpdateDataFromDsUpdate(req) {
-  var update = req.body['ds' + req.params.table]['tt' + req.params.table][0];
-  delete update['prods:clientId'];
-  delete update['prods:id'];
-  delete update['prods:rowState'];
-  return update;
-}
-
-function setPksFromBeforeImage(req, cb) {
-  var before = req.body['ds' + req.params.table]['prods:before']['tt'
-    + req.params.table][0];
-  metadata.getCatalog(req.params.db, req.params.table, true, req.broker,
-    function(err, catalog) {
-      if (err) {
-        return cb(err);
-      }
-      var pk = catalog.services[0].resources[0].schema.properties['ds'
-        + req.params.table].properties['tt' + req.params.table].primaryKey;
-      var httpSuffix = '';
-      pk.forEach(function(pkField) {
-        httpSuffix += before[pkField] + '/';
+      delete req.body._id;
+      var pkFn = self.asDataset ? _getPksFromBeforeImage
+        : _getPksFromQueryString;
+      pkFn(req)
+        .then(
+          function(pkMap) {
+            return self.crudHandler.update(req.broker, getFullTableName(req),
+              pkMap, self.asDataset ? _getUpdateDataFromDsUpdate(req)
+                : req.body);
+          }).then(function(rows) {
+          _sendReadResponse(rows, req, res);
+        })['catch'](function(err) {
+        _error(err, res);
       });
-      req.params[0] = httpSuffix;
-      cb();
-    });
-}
+    }
 
-function getDataFromDataset(req) {
-  var tts = req.body['tt' + req.params.table];
-  if (tts instanceof Array) {
-    tts = tts[0];
+    this.doCount = function(req, res) {
+      var filter = req.query.filter && req.query.filter !== '' ? self.filter
+        .fromKendo(req.query.filter) : null;
+      self.crudHandler.count(req.broker, req.params.db, req.params.table,
+        filter).then(function(count) {
+        res.status(200).json(count);
+      }, function(err) {
+        _error(err, res);
+      });
+    };
+
+    this.filter = {
+      fromKendo : function(kendoFilter) {
+        return {
+          where : _convertKendoFilter(kendoFilter)
+        };
+      }
+    };
+
+  };
+
+  function _getUpdateDataFromDsUpdate(req) {
+    var update = req.body['ds' + req.params.table]['tt' + req.params.table][0];
+    delete update['prods:clientId'];
+    delete update['prods:id'];
+    delete update['prods:rowState'];
+    return update;
   }
-  delete tts._id;
-  return tts;
-}
-function formatResponseAsDataset(req, row) {
-  var ttRet = {};
-  ttRet['ds' + req.params.table] = {};
-  ttRet['ds' + req.params.table]['tt' + req.params.table] = [ row ];
-  return ttRet;
-}
-function sanitizeQueryString(req) {
-  delete req.query.jsdoFilter;
-  delete req.query.top;
-  delete req.query.skip;
-  delete req.query.sort;
-}
 
-function getClauseFromKendo(flt) {
-  var clause = {};
-  switch (flt.operator) {
-    case 'eq':
-      clause[flt.field] = {
-        eq : flt.value
-      };
-      break;
-    case 'neq':
-      clause[flt.field] = {
-        ne : flt.value
-      };
-      break;
-    case 'gte':
-      clause[flt.field] = {
-        ge : flt.value
-      };
-      break;
-    case 'lte':
-      clause[flt.field] = {
-        le : flt.value
-      };
-      break;
-    case 'lt':
-      clause[flt.field] = {
-        lt : flt.value
-      };
-      break;
-    case 'gt':
-      clause[flt.field] = {
-        gt : flt.value
-      };
-      break;
-    case 'contains':
-      clause[flt.field] = {
-        matches : '*' + flt.value + '*'
-      };
-      break;
-    case 'doesnotcontain': {
-      clause[flt.field] = {
-        not : {
+  function _getDataFromDataset(req) {
+    var tts = req.body[_ttName(req.params.table)];
+    if (tts instanceof Array) {
+      tts = tts[0];
+    }
+    delete tts._id;
+    return tts;
+  }
+
+  function _getPkFromQueryString(req) {
+    return new rsvp.Promise(function(resolve, reject) {
+      var pkString = req.params[0];
+      if (pkString.charAt(pkString.length - 1) === '/') {
+        pkString = pkString.substring(0, pkString.length - 1);
+      }
+      if (pkString.charAt(0) === '/') {
+        pkString = pkString.substring(1, pkString.length);
+      }
+      var pk = pkString.split('/');
+
+      _getPrimaryKey(req.broker, req.params.db, req.params.table).then(
+        function(primaryKey) {
+          if (pk.length !== primaryKey) {
+            reject(new _error('Invalid primary key values'));
+          }
+          var pkMap = {};
+          for ( var i in pk) {
+            pkMap[primaryKey[i]] = pk[i];
+          }
+          resolve(pkMap);
+        }, reject);
+    });
+  }
+
+  function _getPrimaryKey(broker, db, table) {
+    return new rsvp.Promise(function(resolve, reject) {
+      self.akeraMetadata.getTable(broker, db, table).then(function(meta) {
+        resolve(meta.pk);
+      }, reject);
+    });
+  }
+
+  function _getPkFromBeforeImage(req) {
+    return new rsvp.Promise(function(resolve, reject) {
+      var before = req.body['ds' + req.params.table]['prods:before']['tt'
+        + req.params.table][0];
+
+      _getPrimaryKey(req.broker, req.params.db, req.params.table).then(
+        function(primaryKey) {
+          var pkMap = {};
+          for ( var i in primaryKey) {
+            pkMap[primaryKey[i]] = before[primaryKey[i]];
+          }
+          resolve(pkMap);
+        }, reject);
+    });
+  }
+
+  function _getFullTableName(req) {
+    return req.params.db + '.' + req.params.table;
+  }
+
+  function _dsName(tableName) {
+    return 'ds' + tableName;
+  }
+
+  function _ttName(tableName) {
+    return 'tt' + tableName;
+  }
+
+  function _sendReadResponse(rows, req, res) {
+    if (self.asDataset === true) {
+      var ds = {};
+      var table = req.params.table;
+      ds[_dsName(table)] = {};
+      ds[_dsName(table)][_ttName(table)] = rows instanceof Array ? rows
+        : [ rows ];
+
+      return res.status(200).json(ds);
+    }
+    res.status(200).json(rows);
+  }
+
+  function _getClauseFromKendo(flt) {
+    var clause = {};
+    switch (flt.operator) {
+      case 'eq':
+        clause[flt.field] = {
+          eq : flt.value
+        };
+        break;
+      case 'neq':
+        clause[flt.field] = {
+          ne : flt.value
+        };
+        break;
+      case 'gte':
+        clause[flt.field] = {
+          ge : flt.value
+        };
+        break;
+      case 'lte':
+        clause[flt.field] = {
+          le : flt.value
+        };
+        break;
+      case 'lt':
+        clause[flt.field] = {
+          lt : flt.value
+        };
+        break;
+      case 'gt':
+        clause[flt.field] = {
+          gt : flt.value
+        };
+        break;
+      case 'contains':
+        clause[flt.field] = {
           matches : '*' + flt.value + '*'
-        }
-      };
-      break;
+        };
+        break;
+      case 'doesnotcontain': {
+        clause[flt.field] = {
+          not : {
+            matches : '*' + flt.value + '*'
+          }
+        };
+        break;
+      }
+      case 'startswith':
+        clause[flt.field] = {
+          matches : flt.value + '*'
+        };
+        break;
+      case 'endswith':
+        clause[flt.field] = {
+          matches : '*' + flt.value
+        };
+        break;
+      default:
+        throw new Type_error('Filter operator ' + flt.operator
+          + ' is not supported.');
     }
-    case 'startswith':
-      clause[flt.field] = {
-        matches : flt.value + '*'
-      };
-      break;
-    case 'endswith':
-      clause[flt.field] = {
-        matches : '*' + flt.value
-      };
-      break;
-    default:
-      throw new TypeError('Filter operator ' + flt.operator
-        + ' is not supported.');
+    return clause;
   }
-  return clause;
-}
 
-function convertKendoFilter(filter) {
-  var restFilter = {};
-  if (typeof (filter) === 'string') {
-    filter = JSON.parse(filter);
-  }
-  if (filter.filters) {
-    if (filter.filters.length === 1) {
-      restFilter = convertKendoFilter(filter.filters[0]);
-      return restFilter;
+  function _convertKendoFilter(filter) {
+    var restFilter = {};
+    if (typeof (filter) === 'string') {
+      filter = JSON.parse(filter);
     }
-    restFilter[filter.logic] = [];
+    if (filter.filters) {
+      if (filter.filters.length === 1) {
+        restFilter = _convertKendoFilter(filter.filters[0]);
+        return restFilter;
+      }
+      restFilter[filter.logic] = [];
 
-    filter.filters.forEach(function(flt) {
-      restFilter[filter.logic].push(convertKendoFilter(flt));
-    });
+      filter.filters.forEach(function(flt) {
+        restFilter[filter.logic].push(_convertKendoFilter(flt));
+      });
 
-  } else {
-    return getClauseFromKendo(filter);
+    } else {
+      return _getClauseFromKendo(filter);
+    }
+
+    return restFilter;
   }
 
-  return restFilter;
-}
-
-function error(err, res) {
-  res.status(500).json(err instanceof Error ? {
-    message : err.message,
-    stack : err.stack
-  } : err);
+  function _error(err, res) {
+    res.status(500).json(err instanceof Error ? {
+      message : err.message,
+      stack : err.stack
+    } : err);
+  }
 }
 
 module.exports = JSDOHandler;
