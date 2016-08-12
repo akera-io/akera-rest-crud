@@ -21,7 +21,8 @@
   "main": "index.js",
   "dependencies": {
     "akera-api": ">=1.0.15",
-    "async": "^2.0.1"
+    "async": "^2.0.1",
+    "rsvp": "^3.2.1"
   },
   "bundledDependencies": [
     "akera-api"
