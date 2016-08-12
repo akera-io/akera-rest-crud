@@ -122,7 +122,7 @@ function JSDOHandler(restHandler) {
         });
       } else {
         delete req.body._id;
-        self.restHandler._update(req.params.db + '.' + req.params.table, self.restHandler.getPkFilter(req), req.body)
+        self.restHandler.doUpdate(req, res);
       }
     }
 

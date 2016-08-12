@@ -295,38 +295,42 @@ function AkeraRestCrud(akeraWebApp) {
     });
   };
 
-  this._update = function(conn, table, filter, data, res) {
+  this._update = function(table, filter, data, cb) {
+    self.connect(req.broker, function(err, conn) {
+      if (err) {
+        cb(err);
+      }
+
     try {
       conn.query.update(table).where(filter).set(data).fetch().then(
         function(rows) {
           conn.disconnect();
-          res.status(200).send(rows);
+          cb(null,rows);
         })['catch'](function(err) {
         conn.disconnect();
-        self.error(err, res);
+        cb(err);
       });
     } catch (e) {
       conn.disconnect();
-      self.error(e, res);
-    }
+      cb(e);
+    }});
   };
 
-  this.doUpdate = function(req, res) {
-    self.connect(req.broker, function(err, conn) {
-      if (err) {
-        return self.error(err, res);
-      }
-
+  this.doUpdate = function(req, res) {  
       var db = req.params.db;
       var table = req.params.table;
       self.getPk(conn, db, table, function(err, pk) {
         if (err) {
           return self.error(err, res);
         }
-        self._update(conn, db + '.' + table, self
-          .getPkFilter(pk, req.params[0]), req.body, res);
+        self._update(db + '.' + table, self
+          .getPkFilter(pk, req.params[0]), req.body, function(err, rows) {
+          if (err) {
+            return self.error(err, res);
+          }
+          res.status(200).json(rows);
+        });
       });
-    });
   };
 
   this.doUpdateByRowid = function(req, res) {
@@ -441,6 +445,7 @@ function AkeraRestCrud(akeraWebApp) {
         router.get(config.route + 'jsdo/:db/:table', jsdoHndl.doSelect);
         router.post(config.route + 'jsdo/:db/:table', jsdoHndl.doCreate);
         router.put(config.route + 'jsdo/:db/:table/*', jsdoHndl.doUpdate);
+        router.put(config.route + 'jsdo/:db/:table', jsdoHndl.doUpdate);
         router['delete'](config.route + 'jsdo/:db/:table/*', self.doDelete);
         router.get(config.route + 'jsdo/:db/:table/count', jsdoHndl.doCount);
         break;
