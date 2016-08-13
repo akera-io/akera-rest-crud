@@ -210,10 +210,10 @@ AkeraMetaData.prototype.disconnect = function(cb, data) {
 
   this._conn.disconnect().then(function() {
     delete this._conn;
-    cb && cb(data);
+    return cb && cb(data);
   }, function() {
     delete this._conn;
-    cb && cb(data);
+    return cb && cb(data);
   });
 }
 
@@ -260,8 +260,6 @@ AkeraMetaData.prototype.loadDatabase = function(dbMeta, fullLoad) {
 };
 
 AkeraMetaData.prototype.loadTable = function(tblMeta) {
-  var self = this;
-
   return new rsvp.Promise(function(resolve, reject) {
     try {
       var tableInfo = {};

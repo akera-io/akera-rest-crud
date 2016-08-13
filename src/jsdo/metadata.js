@@ -1,5 +1,3 @@
-var akera = require('akera-api');
-var async = require('async');
 var rsvp = require('rsvp');
 
 var jsonAblMap = {
