@@ -42,16 +42,13 @@ AkeraMetaData.prototype.getDatabases = function(broker, fullLoad) {
           self.loadDatabase(dbMeta, fullLoad).then(function(info) {
             brokerInfo.db[dbName] = info;
             cb();
-          })['catch'](cb);
+          }, cb);
         }, function(err) {
-
           if (err)
-            return reject(err);
+            return self.disconnect(reject, err);
 
           self.cache[broker.alias] = brokerInfo;
-          self.disconnect();
-
-          resolve(brokerInfo.db);
+          self.disconnect(resolve, brokerInfo.db);
         });
 
       } else {
@@ -62,13 +59,10 @@ AkeraMetaData.prototype.getDatabases = function(broker, fullLoad) {
             brokerInfo.db[dbName] = {};
         });
         self.cache[broker.alias] = brokerInfo;
-        self.disconnect();
-
-        resolve(brokerInfo.db);
+        self.disconnect(resolve, brokerInfo.db);
       }
     })['catch'](function(err) {
-      self.disconnect();
-      reject(err);
+      self.disconnect(reject, err);
     });
   });
 };
@@ -104,11 +98,9 @@ AkeraMetaData.prototype.getDatabase = function(broker, db, fullLoad) {
         brokerInfo.db = brokerInfo.db || {};
         brokerInfo.db[db] = info;
 
-        self.disconnect();
-        resolve(info);
+        self.disconnect(resolve, info);
       })['catch'](function(err) {
-        self.disconnect();
-        reject(err);
+        self.disconnect(reject, err);
       });
     });
 };
@@ -142,12 +134,10 @@ AkeraMetaData.prototype.getTables = function(broker, db, fullLoad) {
 
       brokerInfo.db[db] = info;
 
-      self.disconnect();
-      resolve(info.table);
+      self.disconnect(resolve, info.table);
 
     })['catch'](function(err) {
-      self.disconnect();
-      reject(err);
+      self.disconnect(reject, err);
     });
   });
 
@@ -201,27 +191,30 @@ AkeraMetaData.prototype.getTable = function(broker, db, table) {
       if (!numTables) {
         databaseMeta.getNumTables().then(function(num) {
           dbInfo.numTables = num;
-
-          resolve(info);
+          self.disconnect(resolve, info);
         }, function(err) {
-          self.disconnect();
-          reject(err);
+          self.disconnect(reject, err);
         });
       } else {
-        resolve(info);
+        self.disconnect(resolve, info);
       }
     })['catch'](function(err) {
-      self.disconnect();
-      reject(err);
+      self.disconnect(reject, err);
     });
   });
 };
 
-AkeraMetaData.prototype.disconnect = function() {
-  if (this._conn) {
-    this._conn.disconnect();
+AkeraMetaData.prototype.disconnect = function(cb, data) {
+  if (!this._conn)
+    return cb && cb(data);
+
+  this._conn.disconnect().then(function() {
     delete this._conn;
-  }
+    cb && cb(data);
+  }, function() {
+    delete this._conn;
+    cb && cb(data);
+  });
 }
 
 AkeraMetaData.prototype.loadDatabase = function(dbMeta, fullLoad) {
