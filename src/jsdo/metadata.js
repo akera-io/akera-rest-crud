@@ -1,7 +1,5 @@
 var akera = require('akera-api');
 var async = require('async');
-var CacheManager = require('./cache.js');
-var cacheMngr = new CacheManager();
 var rsvp = require('rsvp');
 
 var jsonAblMap = {
@@ -26,51 +24,42 @@ function JSDOCatalog(akeraMetadata) {
       var root = getRootNode();
 
       if (!tableName && !dbName) {
-        if (cacheMngr.rootLoaded()) {
-          root.services = cacheMngr.getAllServices();
-          return resolve(root);
-        } else {
-          self.akeraMetadata.getDatabases(broker, true).then(
-            function(structure) {
-              Object.keys(structure).forEach(
-                function(dbName) {
+        self.akeraMetadata.getDatabases(broker, true).then(
+          function(structure) {
+            Object.keys(structure).forEach(
+              function(dbName) {
+                try {
                   root.services.push(_getDatabaseService(dbName,
-                    structure[dbName], asDataset));
-                  cacheMngr.storeService(service);
-                });
-              cacheMngr.rootLoaded(true);
-              resolve(root);
-            }, reject);
-        }
+                    structure[dbName].table, asDataset));
+                } catch (err) {
+                  reject(err);
+                }
+              });
+            resolve(root);
+          }, reject);
       } else if (!tableName) {
-        var s = cacheMngr.getService(dbName);
-        if (s && (cacheMngr.rootLoaded() || cacheMngr.isSvcFullyLoaded(s))) {
-          root.services.push(s);
-          return resolve(root);
-        } else {
-          self.akeraMetadata.getTables(broker, dbName, true).then(
-            function(tables) {
-              var service = _getDatabaseService(dbName, tables, asDataset);
-              root.services.push(sv);
-              cacheMngr.storeService(sv, true);
-              resolve(service);
-            }, reject);
-        }
-      } else {
-        var srvTable = cacheMngr.getService(dbName, tableName);
-        if (srvTable) {
-          root.services.push(srvTable);
-          return resolve(root);
-        } else {
-          self.akeraMetadata.getTable(dbName, tableName).then(
-            function(tableMeta) {
-              var service = _getDatabseService(dbName, tableMeta, asDataset,
-                true);
-              root.services.push(service);
-              cacheMngr.storeService(service);
+        self.akeraMetadata.getTables(broker, dbName, true).then(
+          function(tables) {
+            try {
+              root.services
+                .push(_getDatabaseService(dbName, tables, asDataset));
               resolve(root);
-            }, reject);
-        }
+            } catch (err) {
+              reject(err);
+            }
+          }, reject);
+      } else {
+        self.akeraMetadata.getTable(broker, dbName, tableName).then(
+          function(tableMeta) {
+            try {
+              var tables = {};
+              tables[tableName] = tableMeta;
+              root.services.push(_getDatabaseService(dbName, tables, asDataset));
+              resolve(root);
+            } catch (err) {
+              reject(err);
+            }
+          }, reject);
       }
     });
   };
@@ -79,23 +68,18 @@ function JSDOCatalog(akeraMetadata) {
 function getRootNode() {
   return {
     version : '1.3',
-    lastModified : cacheMngr.lastModified,
+    lastModified : new Date().toString(),
     services : []
   };
 }
 
-function _getDatabaseService(dbName, tables, asDataset, singleTable) {
+function _getDatabaseService(dbName, tables, asDataset) {
   var service = {
     name : dbName,
     address : '\/' + dbName,
     useRequest : true,
     resources : []
   };
-
-  if (singleTable) {
-    service.resources.push(_getTableResource(tables, asDataset));
-    return service;
-  }
 
   Object.keys(tables).forEach(
     function(tableName) {
@@ -207,7 +191,7 @@ function _getTableResource(tableName, tableMeta, asDataset) {
     + tableName]
     : resource.schema.properties[tableName];
 
-  Object.keys(tableMeta.fields, function(fieldName) {
+  Object.keys(tableMeta.fields).forEach(function(fieldName) {
     var field = tableMeta.fields[fieldName];
     var prop = {
       type : field.extent > 1 ? 'array' : jsonAblMap[field.type],
