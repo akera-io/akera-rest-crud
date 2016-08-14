@@ -11,8 +11,25 @@ var broker = {
   port : 38900
 };
 
+var badBroker = {
+  alias : 'sportsbad',
+  host : '10.10.10.6',
+  port : 33333
+};
+
 describe('JSDO Metadata', function() {
 
+  it('should fail to load all services with invalid broker', function(done) {
+    this.timeout(10000);
+
+    jsdoMeta.getCatalog(null, null, true, badBroker).then(function(info) {
+      done(new Error('Should have failed but returned: ' + info));
+    }, function(err) {
+      done();
+    });
+
+  });
+  
   it('should load all database services', function(done) {
     this.timeout(10000);
 
@@ -44,6 +61,17 @@ describe('JSDO Metadata', function() {
 
   });
 
+  it('should fail to load sports2000 service with invalid broker', function(done) {
+    this.timeout(10000);
+
+    jsdoMeta.getCatalog('sports2000', null, true, badBroker).then(function(info) {
+      done(new Error('Should have failed but returned: ' + info));
+    }, function(err) {
+      done();
+    });
+
+  });
+  
   it('should load sports2000 service', function(done) {
     this.timeout(10000);
 
@@ -75,11 +103,21 @@ describe('JSDO Metadata', function() {
 
   });
 
+  it('should fail to load customer service with invalid broker', function(done) {
+    this.timeout(10000);
+
+    jsdoMeta.getCatalog('sports2000', 'customer', true, badBroker).then(function(info) {
+      done(new Error('Should have failed but returned: ' + info));
+    }, function(err) {
+      done();
+    });
+
+  });
   
   it('should load only customer service', function(done) {
     this.timeout(10000);
 
-    jsdoMeta.getCatalog('sports2000', 'Customer', true, broker).then(
+    jsdoMeta.getCatalog('sports2000', 'customer', true, broker).then(
       function(dbs) {
         try {
           should(dbs).be.an.instanceOf(Object);

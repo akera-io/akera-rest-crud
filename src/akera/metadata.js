@@ -32,7 +32,7 @@ AkeraMetaData.prototype.getDatabases = function(broker, fullLoad) {
 
       if (fullLoad === true) {
         async.forEach(dbs, function(dbMeta, cb) {
-          var dbName = dbMeta.getName();
+          var dbName = dbMeta.getLname().toLowerCase();
           var dbInfo = brokerInfo.db[dbName] || {};
 
           // database info already loaded
@@ -53,7 +53,7 @@ AkeraMetaData.prototype.getDatabases = function(broker, fullLoad) {
 
       } else {
         dbs.forEach(function(db) {
-          var dbName = db.getName();
+          var dbName = db.getLname().toLowerCase();
 
           if (!brokerInfo.db[dbName])
             brokerInfo.db[dbName] = {};
@@ -69,6 +69,8 @@ AkeraMetaData.prototype.getDatabases = function(broker, fullLoad) {
 
 AkeraMetaData.prototype.getDatabase = function(broker, db, fullLoad) {
   var self = this;
+
+  db = db && db.toLowerCase();
 
   return new rsvp.Promise(
     function(resolve, reject) {
@@ -108,6 +110,8 @@ AkeraMetaData.prototype.getDatabase = function(broker, db, fullLoad) {
 AkeraMetaData.prototype.getTables = function(broker, db, fullLoad) {
   var self = this;
 
+  db = db && db.toLowerCase();
+
   return new rsvp.Promise(function(resolve, reject) {
     if (!broker || !broker.alias)
       reject(new Error('Invalid broker.'));
@@ -145,6 +149,9 @@ AkeraMetaData.prototype.getTables = function(broker, db, fullLoad) {
 
 AkeraMetaData.prototype.getTable = function(broker, db, table) {
   var self = this;
+
+  db = db && db.toLowerCase();
+  table = table && table.toLowerCase();
 
   return new rsvp.Promise(function(resolve, reject) {
     if (!broker || !broker.alias)
@@ -234,14 +241,14 @@ AkeraMetaData.prototype.loadDatabase = function(dbMeta, fullLoad) {
           dbInfo.loadedTables = dbInfo.numTables;
 
           tbs.forEach(function(tblMeta) {
-            dbInfo.table[tblMeta.getName()] = {};
+            dbInfo.table[tblMeta.getName().toLowerCase()] = {};
           });
           return resolve(dbInfo);
         }
 
         async.forEach(tbs, function(tblMeta, cb) {
           self.loadTable(tblMeta).then(function(tableInfo) {
-            dbInfo.table[tblMeta.getName()] = tableInfo;
+            dbInfo.table[tblMeta.getName().toLowerCase()] = tableInfo;
             cb();
           }, cb);
         }, function(err) {
