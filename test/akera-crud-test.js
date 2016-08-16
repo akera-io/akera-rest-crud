@@ -212,6 +212,30 @@ describe('Akera Crud', function() {
     }, done);
 
   });
+  
+  it('read should work with pagination', function(done) {
+    this.timeout(10000);
+
+    crud.read(broker, 'sports2000.Customer', {
+      where : {
+        'CustNum' : {
+          'lt' : 10
+        }
+      },
+      top : 1,
+      fields : ['CustNum', 'Name', 'Rowid']
+    }).then(function(info) {
+      try {
+        should(info).be.an.instanceOf(Array);
+        (Object.keys(info[0]).length).should.be.exactly(3);
+        should(info[0]).have.properties([ 'CustNum', 'Name', 'Rowid']);
+        done();
+      } catch (err) {
+        done(err);
+      }
+    }, done);
+
+  });
 
   it('read should work with sort descending', function(done) {
     this.timeout(10000);
@@ -263,6 +287,27 @@ describe('Akera Crud', function() {
 
   });
 
+  it('read should work with count', function(done) {
+    this.timeout(10000);
+
+    crud.read(broker, 'sports2000.Customer', {
+      where : {
+        'CustNum' : {
+          'lt' : 3
+        }
+      },
+      count : true
+    }).then(function(info) {
+      try {
+        (info).should.be.exactly(2);
+        done();
+      } catch (err) {
+        done(err);
+      }
+    }, done);
+
+  });
+  
   // update tests
   it('update should fail if invalid broker', function(done) {
     this.timeout(10000);
