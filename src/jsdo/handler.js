@@ -1,15 +1,16 @@
 var JSDOCatalog = require('./metadata.js');
 var rsvp = require('rsvp');
 
-function JSDOHandler(akeraHandler) {
+function JSDOHandler(akera) {
 
   var self = this;
 
-  this.crudHandler = akeraHandler.getDataAccess();
-  this.akeraMetadata = akeraHandler.getMetaData();
+  this.akera = akera;
+  this.crudHandler = akera.getAkeraHandler().getDataAccess();
+  this.akeraMetadata = akera.getAkeraHandler().getMetaData();
   this.metadata = new JSDOCatalog(this.akeraMetadata);
 
-  this.init = function(router, config) {
+  this.init = function(config, router) {
     router.get(config.route + 'jsdo/metadata', self.getCatalog);
     router.get(config.route + 'jsdo/metadata/:db', self.getCatalog);
     router.get(config.route + 'jsdo/metadata/:db/:table', self.getCatalog);
@@ -30,7 +31,7 @@ function JSDOHandler(akeraHandler) {
       req.broker).then(function(catalog) {
       res.status(200).json(catalog);
     }, function(err) {
-      _error(err, res);
+      self.akera.error(err, res);
     });
   };
 
@@ -47,39 +48,41 @@ function JSDOHandler(akeraHandler) {
     }
 
     if (req.query.sort) {
-      if (typeof (req.query.sort) === 'string') {
+      if (typeof (req.query.sort) === 'string' && req.query.sort !== '') {
         try {
           req.query.sort = JSON.parse(req.query.sort);
-        } catch (e) {}
+        } catch (e) {
+          filter.by = {
+            field : req.query.sort
+          };
+        }
       }
       if (req.query.sort instanceof Array) {
         if (req.query.sort.length > 0) {
-          filter.by = {
-            field : req.query.sort[0].field,
-            descending : req.query.sort[0].dir !== 'asc'
-          };
+          filter.sort = req.query.sort.map(function(sortCriteria) {
+            var sortCondition = {};
+            sortCondition[sortCriteria.field] = sortCriteria.dir !== 'asc';
+            return sortCondition;
+          });
         }
-      } else if (req.query.sort !== '') {
-        filter.by = {
-          field : req.query.sort.field,
-          descending : req.query.sort.dir !== 'asc'
-        };
       }
     }
 
     if (!self.asDataset) {
       _getPkFromQueryString(req).then(function(pkMap) {
-        return self.crudHandler.read(req.broker, pkMap, filter);
+        filter.pk = pkMap;
+        return self.crudHandler.read(req.broker, req.params.table, filter);
       }).then(function(rows) {
         _sendReadResponse(rows, req, res);
       })['catch'](function(err) {
-        _error(err, res);
+        self.akera.error(err, res);
       });
     } else {
-      self.crudHandler.read(null, filter).then(function(rows) {
-        _sendReadResponse(rows, req, res);
-      }, function(err) {
-        _error(err, res);
+      self.crudHandler.read(req.broker, req.params.table, filter).then(
+        function(rows) {
+          _sendReadResponse(rows, req, res);
+        })['catch'](function(err) {
+        self.akera.error(err, res);
       });
     }
   };
@@ -93,18 +96,17 @@ function JSDOHandler(akeraHandler) {
         function(row) {
           _sendReadResponse(row, req, res);
         }, function(err) {
-          _error(err, res);
+          self.akera.error(err, res);
         });
     } else {
-      _error(new Error('No data provided'), res);
+      self.akera.error(new Error('No data provided'), res);
     }
   };
 
   this.doUpdate = function(req, res) {
     if (req.body) {
       delete req.body._id;
-      var pkFn = self.asDataset ? _getPkFromBeforeImage
-        : _getPkFromQueryString;
+      var pkFn = self.asDataset ? _getPkFromBeforeImage : _getPkFromQueryString;
       pkFn(req)
         .then(
           function(pkMap) {
@@ -114,29 +116,42 @@ function JSDOHandler(akeraHandler) {
           }).then(function(rows) {
           _sendReadResponse(rows, req, res);
         })['catch'](function(err) {
-        _error(err, res);
+        self.akera.error(err, res);
       });
     }
+  };
 
-    this.doCount = function(req, res) {
-      var filter = req.query.filter && req.query.filter !== '' ? self.filter
-        .fromKendo(req.query.filter) : null;
-      self.crudHandler.count(req.broker, req.params.db, req.params.table,
-        filter).then(function(count) {
-        res.status(200).json(count);
+  this.doDelete = function(req, res) {
+    var pkFn = self.asDataset ? _getPkFromBeforeImage : _getPkFromQueryString;
+    pkFn(req).then(function(pkMap) {
+      return self.crudHandler.destroy(req.broker, req.params.table, pkMap);
+    }).then(function(result) {
+      res.status(200).json(result);
+    })['catch'](function(err) {
+      self.akera.error(err, res);
+    });
+  };
+
+  this.doCount = function(req, res) {
+    var filter = req.query.filter && req.query.filter !== '' ? self.filter
+      .fromKendo(req.query.filter) : {};
+    filter.count = true;
+    self.crudHandler.read(req.broker, req.params.table, filter).then(
+      function(count) {
+        res.status(200).json({
+          count : count
+        });
       }, function(err) {
-        _error(err, res);
+        self.akera.error(err, res);
       });
-    };
+  };
 
-    this.filter = {
-      fromKendo : function(kendoFilter) {
-        return {
-          where : _convertKendoFilter(kendoFilter)
-        };
-      }
-    };
-
+  this.filter = {
+    fromKendo : function(kendoFilter) {
+      return {
+        where : _convertKendoFilter(kendoFilter)
+      };
+    }
   };
 
   function _getUpdateDataFromDsUpdate(req) {
@@ -159,6 +174,8 @@ function JSDOHandler(akeraHandler) {
   function _getPkFromQueryString(req) {
     return new rsvp.Promise(function(resolve, reject) {
       var pkString = req.params[0];
+      if (!pkString)
+        return resolve();
       if (pkString.charAt(pkString.length - 1) === '/') {
         pkString = pkString.substring(0, pkString.length - 1);
       }
@@ -169,7 +186,7 @@ function JSDOHandler(akeraHandler) {
 
       _getPrimaryKey(req.broker, req.params.db, req.params.table).then(
         function(primaryKey) {
-          if (pk.length !== primaryKey) {
+          if (pk.length !== primaryKey.length) {
             reject(new Error('Invalid primary key values'));
           }
           var pkMap = {};
@@ -316,12 +333,6 @@ function JSDOHandler(akeraHandler) {
     return restFilter;
   }
 
-  function _error(err, res) {
-    res.status(500).json(err instanceof Error ? {
-      message : err.message,
-      stack : err.stack
-    } : err);
-  }
 }
 
 module.exports = JSDOHandler;

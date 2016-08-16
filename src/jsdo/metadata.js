@@ -52,7 +52,8 @@ function JSDOCatalog(akeraMetadata) {
             try {
               var tables = {};
               tables[tableName] = tableMeta;
-              root.services.push(_getDatabaseService(dbName, tables, asDataset));
+              root.services
+                .push(_getDatabaseService(dbName, tables, asDataset));
               resolve(root);
             } catch (err) {
               reject(err);
@@ -126,10 +127,13 @@ function _getTableResource(tableName, tableMeta, asDataset) {
       } ]
     }, {
       path : suffix,
-      useBeforeImage : false,
+      useBeforeImage : asDataset,
       type : 'delete',
       verb : 'delete',
-      params : []
+      params : asDataset ? [ {
+        name : 'ds' + tableName,
+        type : 'REQUEST_BODY'
+      } ] : []
     }, {
       path : '/count?filter={filter}',
       name : 'count',
@@ -137,7 +141,7 @@ function _getTableResource(tableName, tableMeta, asDataset) {
       verb : 'get',
       useBeforeImage : false,
       params : [ {
-        name : 'num',
+        name : 'count',
         type : 'RESPONSE_BODY',
         xType : 'number'
       } ]
