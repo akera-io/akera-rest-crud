@@ -30,8 +30,8 @@
   "scripts": {
   	"lint": "jshint ./src",
     "checkStyle": "jscs ./src",
-    "prepublish": "npm run-script test && grunt",
-    "mpretest": "npm run-script lint && npm run-script checkStyle && npm run-script prepublish",
+    "prepublish": "npm test && grunt",
+    "pretest": "npm run-script lint && npm run-script checkStyle",
     "test": "export NODE_PATH=/usr/local/lib/node_modules && istanbul cover _mocha -- --recursive -R spec test/*-test.js",
     "posttest": "export NODE_PATH=/usr/local/lib/node_modules && istanbul check-coverage"
   },

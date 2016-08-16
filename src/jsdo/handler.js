@@ -35,15 +35,6 @@ function JSDOHandler(akeraHandler) {
   };
 
   this.doSelect = function(req, res) {
-    if ((!req.query.jsdoFilter || req.query.jsdoFilter === '')
-      && (!req.query.top || req.query.top === '')
-      && (!req.query.skip || req.query.skip === '')
-      && (!req.query.sort || req.query.sort === ''))
-    {
-      sanitizeQueryString(req);
-      return self.restHandler.doSelect(req, res);
-    }
-
     var filter = {};
     if (req.query.jsdoFilter && req.query.jsdoFilter !== '') {
       filter = self.filter.fromKendo(req.query.jsdoFilter);
@@ -105,19 +96,19 @@ function JSDOHandler(akeraHandler) {
           _error(err, res);
         });
     } else {
-      _error(new _error('No data provided'), res);
+      _error(new Error('No data provided'), res);
     }
   };
 
   this.doUpdate = function(req, res) {
     if (req.body) {
       delete req.body._id;
-      var pkFn = self.asDataset ? _getPksFromBeforeImage
-        : _getPksFromQueryString;
+      var pkFn = self.asDataset ? _getPkFromBeforeImage
+        : _getPkFromQueryString;
       pkFn(req)
         .then(
           function(pkMap) {
-            return self.crudHandler.update(req.broker, getFullTableName(req),
+            return self.crudHandler.update(req.broker, _getFullTableName(req),
               pkMap, self.asDataset ? _getUpdateDataFromDsUpdate(req)
                 : req.body);
           }).then(function(rows) {
@@ -179,7 +170,7 @@ function JSDOHandler(akeraHandler) {
       _getPrimaryKey(req.broker, req.params.db, req.params.table).then(
         function(primaryKey) {
           if (pk.length !== primaryKey) {
-            reject(new _error('Invalid primary key values'));
+            reject(new Error('Invalid primary key values'));
           }
           var pkMap = {};
           for ( var i in pk) {
@@ -296,7 +287,7 @@ function JSDOHandler(akeraHandler) {
         };
         break;
       default:
-        throw new Type_error('Filter operator ' + flt.operator
+        throw new TypeError('Filter operator ' + flt.operator
           + ' is not supported.');
     }
     return clause;

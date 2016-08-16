@@ -25,44 +25,14 @@ module.exports = function(grunt) {
           ext : '.js'
         } ]
       }
-    },
-    jshint : {
-      options : {
-        curly : true,
-        eqeqeq : true,
-        immed : true,
-        latedef : false,
-        newcap : true,
-        noarg : true,
-        sub : true,
-        undef : false,
-        unused : true,
-        boss : true,
-        eqnull : true,
-        laxbreak : true,
-        globals : {}
-      },
-      akeraCrud : {
-        src : 'src/**/*.js'
-      },
-      gruntfile : {
-        src : 'Gruntfile.js'
-      }
-    },
-    watch : {
-      gruntfile : {
-        files : '<%= jshint.gruntfile.src %>',
-        tasks : [ 'jshint:gruntfile' ]
-      }
     }
   });
 
   // These plugins provide necessary tasks.
   grunt.loadNpmTasks('grunt-contrib-uglify');
-  grunt.loadNpmTasks('grunt-contrib-jshint');
   grunt.loadNpmTasks('grunt-contrib-watch');
 
   // Default task.
-  grunt.registerTask('default', [ 'uglify', 'jshint' ]);
+  grunt.registerTask('default', [ 'uglify' ]);
 
 };
