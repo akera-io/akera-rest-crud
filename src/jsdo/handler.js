@@ -11,16 +11,15 @@ function JSDOHandler(akera) {
   this.metadata = new JSDOCatalog(this.akeraMetadata);
 
   this.init = function(config, router) {
+    self.asDataset = config.jsdo && config.jsdo.asDataset === true;
     router.get(config.route + 'jsdo/metadata', self.getCatalog);
     router.get(config.route + 'jsdo/metadata/:db', self.getCatalog);
     router.get(config.route + 'jsdo/metadata/:db/:table', self.getCatalog);
-    router.get(config.route + 'jsdo/:db/:table', self.doSelect);
-    router.post(config.route + 'jsdo/:db/:table', self.doCreate);
-    router.put(config.route + 'jsdo/:db/:table/*', self.doUpdate);
-    router.put(config.route + 'jsdo/:db/:table', self.doUpdate);
-    router['delete'](config.route + 'jsdo/:db/:table/*', self.doDelete);
     router.get(config.route + 'jsdo/:db/:table/count', self.doCount);
-    self.asDataset = config.jsdo && config.jsdo.asDataset === true;
+    router.get(config.route + 'jsdo/:db/:table*', self.doSelect);
+    router.post(config.route + 'jsdo/:db/:table', self.doCreate);
+    router.put(config.route + (self.asDataset ? 'jsdo/:db/:table' : 'jsdo/:db/:table*'), self.doUpdate);
+    router['delete'](config.route + (self.asDataset ? 'jsdo/:db/:table' : 'jsdo/:db/:table*'), self.doDelete);
   };
 
   this.getCatalog = function(req, res) {
@@ -37,8 +36,8 @@ function JSDOHandler(akera) {
 
   this.doSelect = function(req, res) {
     var filter = {};
-    if (req.query.jsdoFilter && req.query.jsdoFilter !== '') {
-      filter = self.filter.fromKendo(req.query.jsdoFilter);
+    if (req.query.filter && req.query.filter !== '') {
+      filter = self.filter.fromKendo(req.query.filter);
     }
     if (req.query.top && req.query.top !== '') {
       filter.limit = parseInt(req.query.top);
@@ -210,7 +209,6 @@ function JSDOHandler(akera) {
     return new rsvp.Promise(function(resolve, reject) {
       var before = req.body['ds' + req.params.table]['prods:before']['tt'
         + req.params.table][0];
-
       _getPrimaryKey(req.broker, req.params.db, req.params.table).then(
         function(primaryKey) {
           var pkMap = {};
@@ -235,16 +233,19 @@ function JSDOHandler(akera) {
   }
 
   function _sendReadResponse(rows, req, res) {
+    var table = req.params.table;
     if (self.asDataset === true) {
-      var ds = {};
-      var table = req.params.table;
+      var ds = {};    
       ds[_dsName(table)] = {};
       ds[_dsName(table)][_ttName(table)] = rows instanceof Array ? rows
         : [ rows ];
 
       return res.status(200).json(ds);
     }
-    res.status(200).json(rows);
+    
+    var ret = {};
+    ret[table] = rows instanceof Array ? rows : [rows];
+    res.status(200).json(ret);
   }
 
   function _getClauseFromKendo(flt) {

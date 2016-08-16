@@ -90,7 +90,7 @@ function _getDatabaseService(dbName, tables, asDataset) {
 }
 
 function _getTableResource(tableName, tableMeta, asDataset) {
-  var suffix = _getPkHttpSuffix(tableMeta);
+  var suffix = _getPkHttpSuffix(tableMeta, asDataset);
   var resource = {
     name : tableName,
     path : '\/' + tableName,
@@ -103,10 +103,13 @@ function _getTableResource(tableName, tableMeta, asDataset) {
       }
     },
     operations : [ {
-      path : '?jsdoFilter={filter}&sort={sort}&skip={skip}&top={top}',
+      path : '?filter={filter}&sort={sort}&skip={skip}&top={top}',
       type : 'read',
       verb : 'get',
-      params : []
+      params : [ {
+        name : asDataset ? 'ds' + tableName : tableName,
+        type : 'REQUEST_BODY,RESPONSE_BODY'
+      } ]
     }, {
       path : '',
       useBeforeImage : false,
