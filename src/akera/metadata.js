@@ -70,8 +70,6 @@ AkeraMetaData.prototype.getDatabases = function(broker, fullLoad) {
 AkeraMetaData.prototype.getDatabase = function(broker, db, fullLoad) {
   var self = this;
 
-  db = db && db.toLowerCase();
-
   return new rsvp.Promise(
     function(resolve, reject) {
       if (!broker || !broker.alias)
@@ -90,6 +88,7 @@ AkeraMetaData.prototype.getDatabase = function(broker, db, fullLoad) {
         self._conn = conn;
         return conn.getMetaData().getDatabase(db);
       }).then(function(dbMeta) {
+        db = dbMeta.getLname().toLowerCase();
         return self.loadDatabase(dbMeta, fullLoad);
       }).then(function(info) {
         if (!brokerInfo) {
@@ -110,8 +109,6 @@ AkeraMetaData.prototype.getDatabase = function(broker, db, fullLoad) {
 AkeraMetaData.prototype.getTables = function(broker, db, fullLoad) {
   var self = this;
 
-  db = db && db.toLowerCase();
-
   return new rsvp.Promise(function(resolve, reject) {
     if (!broker || !broker.alias)
       reject(new Error('Invalid broker.'));
@@ -127,6 +124,7 @@ AkeraMetaData.prototype.getTables = function(broker, db, fullLoad) {
       self._conn = conn;
       return conn.getMetaData().getDatabase(db);
     }).then(function(dbMeta) {
+      db = dbMeta.getLname().toLowerCase();
       return self.loadDatabase(dbMeta, fullLoad);
     }).then(function(info) {
       if (!brokerInfo) {
@@ -150,9 +148,6 @@ AkeraMetaData.prototype.getTables = function(broker, db, fullLoad) {
 AkeraMetaData.prototype.getTable = function(broker, db, table) {
   var self = this;
 
-  db = db && db.toLowerCase();
-  table = table && table.toLowerCase();
-
   return new rsvp.Promise(function(resolve, reject) {
     if (!broker || !broker.alias)
       reject(new Error('Invalid broker.'));
@@ -173,8 +168,13 @@ AkeraMetaData.prototype.getTable = function(broker, db, table) {
     }).then(function(dbMeta) {
       if (!numTables)
         databaseMeta = dbMeta;
+      
+      db = dbMeta.getLname().toLowerCase();
+      
       return dbMeta.getTable(table);
     }).then(function(tableMeta) {
+      table = tableMeta.getName().toLowerCase();
+      
       return self.loadTable(tableMeta);
     }).then(function(info) {
       if (!dbInfo) {

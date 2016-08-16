@@ -21,6 +21,32 @@ var addSort = function(qry, field, desc) {
   }
 };
 
+var getWhereFilter = function(table, filter) {
+  if (typeof filter === 'object') {
+
+    if (filter.rowid) {
+      return f.rowid(table, filter.rowid);
+    } else {
+      var filters = [];
+
+      if (typeof filter.pk === 'object') {
+        for ( var key in filter.pk) {
+          filters.push(f.eq(key, filter.pk[key]));
+        }
+      }
+
+      if (typeof filter.where === 'object')
+        filters.push(filter.where);
+
+      if (filters.length > 0)
+        return filters.length === 1 ? filters[0] : f.and(filters);
+
+    }
+  }
+
+  return null;
+};
+
 AkeraCrud.prototype.create = function(broker, table, data) {
   var self = this;
 
@@ -50,30 +76,28 @@ AkeraCrud.prototype.read = function(broker, table, filter) {
       var qry = conn.query.select(table);
 
       if (typeof filter === 'object') {
-        var filters = [];
 
-        if (typeof filter.pk === 'object') {
-          for ( var key in filter.pk) {
-            filters.push(f.eq(key, filter.pk[key]));
-          }
-        }
+        var where = getWhereFilter(table, filter);
 
-        if (typeof filter.where === 'object')
-          filters.push(filter.where);
-
-        if (filters.length > 0)
-          qry.where(filters.length === 1 ? filters[0] : f.and(filters));
+        if (where)
+          qry.where(where);
 
         if (filter.sort)
           addSort(qry, filter.sort);
 
         filter.offset = filter.offset || filter.start;
         filter.top = filter.top || filter.limit;
+        filter.fields = filter.fields || filter.select;
 
         if (filter.offset)
           qry.offset(filter.offset);
         if (filter.top)
           qry.limit(filter.top);
+        if (filter.fields)
+          qry.fields(filter.fields);
+
+        if (filter.count === true)
+          return qry.count();
       }
 
       return qry.all();
@@ -85,25 +109,36 @@ AkeraCrud.prototype.read = function(broker, table, filter) {
   });
 };
 
-AkeraCrud.prototype.update = function(broker, table, pk, data) {
+AkeraCrud.prototype.update = function(broker, table, where, data) {
   var self = this;
+
+  where = where || {};
 
   return new rsvp.Promise(function(resolve, reject) {
     var _conn = null;
+    var keys = typeof where === 'object' ? Object.keys(where) : where
+      .toString();
 
-    if (typeof pk !== 'object' || Object.keys(pk).length === 0)
+    if (typeof where !== 'string' && keys.length === 0)
       return reject(new Error('Primary key value required for update.'));
 
     akera.connect(broker).then(function(conn) {
       _conn = conn;
 
-      var filters = [];
+      // rowid value
+      if (typeof where === 'string') {
+        where = f.rowid(table, where);
+      } else {
+        if (keys.length > 1) {
+          var filters = [];
 
-      for ( var key in pk) {
-        filters.push(f.eq(key, pk[key]));
+          for ( var key in where) {
+            filters.push(f.eq(key, where[key]));
+          }
+
+          where = f.and(filters);
+        }
       }
-
-      var where = filters.length === 1 ? filters[0] : f.and(filters);
 
       return conn.query.update(table).where(where).set(data).fetch();
     }).then(function(result) {
@@ -117,25 +152,34 @@ AkeraCrud.prototype.update = function(broker, table, pk, data) {
   });
 };
 
-AkeraCrud.prototype.destroy = function(broker, table, pk) {
+AkeraCrud.prototype.destroy = function(broker, table, where) {
   var self = this;
 
   return new rsvp.Promise(function(resolve, reject) {
     var _conn = null;
+    var keys = typeof where === 'object' ? Object.keys(where) : where
+      .toString();
 
-    if (typeof pk !== 'object' || Object.keys(pk).length === 0)
+    if (typeof where !== 'string' && keys.length === 0)
       return reject(new Error('Primary key value required for delete.'));
 
     akera.connect(broker).then(function(conn) {
       _conn = conn;
 
-      var filters = [];
+      // rowid value
+      if (typeof where === 'string') {
+        where = f.rowid(table, where);
+      } else {
+        if (keys.length > 1) {
+          var filters = [];
 
-      for ( var key in pk) {
-        filters.push(f.eq(key, pk[key]));
+          for ( var key in where) {
+            filters.push(f.eq(key, where[key]));
+          }
+
+          where = f.and(filters);
+        }
       }
-
-      var where = filters.length === 1 ? filters[0] : f.and(filters);
 
       return conn.query.destroy(table).where(where).go();
     }).then(function(result) {
