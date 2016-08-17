@@ -5,7 +5,7 @@ var akeraApp = null;
 function AkeraRestCrud(akeraWebApp) {
   var self = this;
   var _akeraHandler = null;
-  
+
   this.error = function(err, res) {
     if (err) {
       if (err instanceof Error) {
@@ -16,7 +16,8 @@ function AkeraRestCrud(akeraWebApp) {
         message : err
       });
 
-      akeraApp.log('error', err);
+      if (akeraApp)
+        akeraApp.log('error', err);
     }
   };
 
@@ -27,7 +28,7 @@ function AkeraRestCrud(akeraWebApp) {
     }
     return _akeraHandler;
   };
-  
+
   this.setupInterface = function(type, config, router) {
     type = type || 'rest';
 
@@ -37,7 +38,7 @@ function AkeraRestCrud(akeraWebApp) {
         break;
       case 'jsdo':
         var JSDOHandler = require('./jsdo/handler.js');
-        
+
         var jsdoHndl = new JSDOHandler(self);
         jsdoHndl.init(config, router);
         break;

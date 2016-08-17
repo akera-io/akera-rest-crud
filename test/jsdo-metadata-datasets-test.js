@@ -17,7 +17,7 @@ var badBroker = {
   port : 33333
 };
 
-describe('JSDO Metadata', function() {
+describe('JSDO Metadata (as datasets)', function() {
 
   it('should fail to load all services with invalid broker', function(done) {
     this.timeout(10000);

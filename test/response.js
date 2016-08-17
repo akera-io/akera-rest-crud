@@ -15,6 +15,7 @@ function Response(cb) {
     return this;
   };
 
+  this.json = this.send;
 }
 
 module.exports = Response;

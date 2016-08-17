@@ -18,8 +18,12 @@ function JSDOHandler(akera) {
     router.get(config.route + 'jsdo/:db/:table/count', self.doCount);
     router.get(config.route + 'jsdo/:db/:table*', self.doSelect);
     router.post(config.route + 'jsdo/:db/:table', self.doCreate);
-    router.put(config.route + (self.asDataset ? 'jsdo/:db/:table' : 'jsdo/:db/:table*'), self.doUpdate);
-    router['delete'](config.route + (self.asDataset ? 'jsdo/:db/:table' : 'jsdo/:db/:table*'), self.doDelete);
+    router.put(config.route
+      + (self.asDataset ? 'jsdo/:db/:table' : 'jsdo/:db/:table*'),
+      self.doUpdate);
+    router['delete'](config.route
+      + (self.asDataset ? 'jsdo/:db/:table' : 'jsdo/:db/:table*'),
+      self.doDelete);
   };
 
   this.getCatalog = function(req, res) {
@@ -89,8 +93,13 @@ function JSDOHandler(akera) {
   this.doCreate = function(req, res) {
     if (req.body) {
       delete req.body._id;
-      var newObject = self.asDataset === true ? _getDataFromDataset(req)
-        : req.body;
+      var newObject;
+      try {
+        newObject = self.asDataset === true ? _getDataFromDataset(req)
+          : req.body;
+      } catch (e) {
+        return self.akera.error(e, res);
+      }
       self.crudHandler.create(req.broker, req.params.table, newObject).then(
         function(row) {
           _sendReadResponse(row, req, res);
@@ -163,6 +172,10 @@ function JSDOHandler(akera) {
 
   function _getDataFromDataset(req) {
     var tts = req.body[_ttName(req.params.table)];
+    if (!tts)
+      throw new Error(
+        'Invalid table name or invalid request body specified. Request body must have property '
+          + _ttName(req.params.table));
     if (tts instanceof Array) {
       tts = tts[0];
     }
@@ -235,16 +248,15 @@ function JSDOHandler(akera) {
   function _sendReadResponse(rows, req, res) {
     var table = req.params.table;
     if (self.asDataset === true) {
-      var ds = {};    
+      var ds = {};
       ds[_dsName(table)] = {};
       ds[_dsName(table)][_ttName(table)] = rows instanceof Array ? rows
         : [ rows ];
-
       return res.status(200).json(ds);
     }
-    
+
     var ret = {};
-    ret[table] = rows instanceof Array ? rows : [rows];
+    ret[table] = rows instanceof Array ? rows : [ rows ];
     res.status(200).json(ret);
   }
 
