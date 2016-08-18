@@ -202,7 +202,7 @@ function _getTableResource(tableName, tableMeta, asDataset) {
       type : field.extent > 1 ? 'array' : jsonAblMap[field.type],
       title : field.label,
       format : field.format,
-      ablType : field.type,
+      ablType : field.type.toUpperCase(),
       required : field.mandatory
     };
 
