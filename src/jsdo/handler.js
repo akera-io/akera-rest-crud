@@ -39,14 +39,17 @@ function JSDOHandler(akera) {
   };
 
   this.doSelect = function(req, res) {
+    var tableName = req.params.db + '.' + req.params.table;
+    
     var filter = {};
     if (req.query.filter && req.query.filter !== '') {
       filter = self.filter.fromKendo(req.query.filter);
     }
-    if (req.query.top && req.query.top !== '') {
+    
+    if (req.query.top && req.query.top !== '' && !isNaN(req.query.top)) {
       filter.limit = parseInt(req.query.top);
     }
-    if (req.query.skip && req.query.skip !== '') {
+    if (req.query.skip && req.query.skip !== '' && !isNaN(req.query.skip)) {
       filter.offset = parseInt(req.query.skip);
     }
 
@@ -74,14 +77,14 @@ function JSDOHandler(akera) {
     if (!self.asDataset) {
       _getPkFromQueryString(req).then(function(pkMap) {
         filter.pk = pkMap;
-        return self.crudHandler.read(req.broker, req.params.table, filter);
+        return self.crudHandler.read(req.broker, tableName, filter);
       }).then(function(rows) {
         _sendReadResponse(rows, req, res);
       })['catch'](function(err) {
         self.akera.error(err, res);
       });
     } else {
-      self.crudHandler.read(req.broker, req.params.table, filter).then(
+      self.crudHandler.read(req.broker, tableName, filter).then(
         function(rows) {
           _sendReadResponse(rows, req, res);
         })['catch'](function(err) {
@@ -92,6 +95,8 @@ function JSDOHandler(akera) {
 
   this.doCreate = function(req, res) {
     if (req.body) {
+      var tableName = req.params.db + '.' + req.params.table;
+      
       delete req.body._id;
       var newObject;
       try {
@@ -100,7 +105,7 @@ function JSDOHandler(akera) {
       } catch (e) {
         return self.akera.error(e, res);
       }
-      self.crudHandler.create(req.broker, req.params.table, newObject).then(
+      self.crudHandler.create(req.broker, tableName, newObject).then(
         function(row) {
           _sendReadResponse(row, req, res);
         }, function(err) {
@@ -113,17 +118,17 @@ function JSDOHandler(akera) {
 
   this.doUpdate = function(req, res) {
     if (req.body) {
+      var tableName = req.params.db + '.' + req.params.table;
+
       delete req.body._id;
       var pkFn = self.asDataset ? _getPkFromBeforeImage : _getPkFromQueryString;
-      pkFn(req)
-        .then(
-          function(pkMap) {
-            return self.crudHandler.update(req.broker, _getFullTableName(req),
-              pkMap, self.asDataset ? _getUpdateDataFromDsUpdate(req)
-                : req.body);
-          }).then(function(rows) {
-          _sendReadResponse(rows, req, res);
-        })['catch'](function(err) {
+      pkFn(req).then(
+        function(pkMap) {
+          return self.crudHandler.update(req.broker, tableName, pkMap,
+            self.asDataset ? _getUpdateDataFromDsUpdate(req) : req.body);
+        }).then(function(rows) {
+        _sendReadResponse(rows, req, res);
+      })['catch'](function(err) {
         self.akera.error(err, res);
       });
     }
@@ -131,8 +136,10 @@ function JSDOHandler(akera) {
 
   this.doDelete = function(req, res) {
     var pkFn = self.asDataset ? _getPkFromBeforeImage : _getPkFromQueryString;
+    var tableName = req.params.db + '.' + req.params.table;
+
     pkFn(req).then(function(pkMap) {
-      return self.crudHandler.destroy(req.broker, req.params.table, pkMap);
+      return self.crudHandler.destroy(req.broker, tableName, pkMap);
     }).then(function(result) {
       res.status(200).json(result);
     })['catch'](function(err) {
@@ -141,10 +148,11 @@ function JSDOHandler(akera) {
   };
 
   this.doCount = function(req, res) {
+    var tableName = req.params.db + '.' + req.params.table;
     var filter = req.query.filter && req.query.filter !== '' ? self.filter
       .fromKendo(req.query.filter) : {};
     filter.count = true;
-    self.crudHandler.read(req.broker, req.params.table, filter).then(
+    self.crudHandler.read(req.broker, tableName, filter).then(
       function(count) {
         res.status(200).json({
           count : count
@@ -233,10 +241,6 @@ function JSDOHandler(akera) {
     });
   }
 
-  function _getFullTableName(req) {
-    return req.params.db + '.' + req.params.table;
-  }
-
   function _dsName(tableName) {
     return 'ds' + tableName;
   }
@@ -261,6 +265,10 @@ function JSDOHandler(akera) {
   }
 
   function _getClauseFromKendo(flt) {
+
+    if (!flt || !flt.operator)
+      return null;
+
     var clause = {};
     switch (flt.operator) {
       case 'eq':

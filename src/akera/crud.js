@@ -85,7 +85,7 @@ AkeraCrud.prototype.read = function(broker, table, filter) {
         if (filter.sort)
           addSort(qry, filter.sort);
 
-        filter.offset = filter.offset || filter.start;
+        filter.offset = filter.offset || filter.start || filter.skip;
         filter.top = filter.top || filter.limit;
         filter.fields = filter.fields || filter.select;
 
