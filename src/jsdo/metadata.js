@@ -110,10 +110,6 @@ function _getTableResource(tableName, tableMeta, asDataset) {
       path : '?filter={filter}&sort={sort}&skip={skip}&top={top}',
       useBeforeImage : false,
       params : [ {
-        name : "filter",
-        type : "PATH",
-        xType : "CHARACTER"
-      }, {
         name : paramName,
         type : 'RESPONSE_BODY',
         xType : xType
@@ -155,10 +151,6 @@ function _getTableResource(tableName, tableMeta, asDataset) {
       path : '/count?filter={filter}',
       useBeforeImage : false,
       params : [ {
-        name : "filter",
-        type : "PATH",
-        xType : "CHARACTER"
-      }, {
         name : 'count',
         type : 'RESPONSE_BODY',
         xType : 'integer'
