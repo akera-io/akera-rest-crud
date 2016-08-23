@@ -165,7 +165,8 @@ function JSDOHandler(akera) {
   };
 
   function _getUpdateDataFromDsUpdate(req) {
-    var update = req.body['ds' + req.params.table]['tt' + req.params.table][0];
+    var tableName = req.params.table;
+    var update = req.body['ds' + tableName][tableName][0];
     delete update['prods:clientId'];
     delete update['prods:id'];
     delete update['prods:rowState'];
@@ -173,11 +174,12 @@ function JSDOHandler(akera) {
   }
 
   function _getDataFromDataset(req) {
-    var tts = req.body[_ttName(req.params.table)];
+    var tableName = req.params.table;
+    var tts = req.body['ds' + tableName][tableName];
     if (!tts)
       throw new Error(
         'Invalid table name or invalid request body specified. Request body must have property '
-          + _ttName(req.params.table));
+          + tableName);
     if (tts instanceof Array) {
       tts = tts[0];
     }
@@ -222,9 +224,9 @@ function JSDOHandler(akera) {
 
   function _getPkFromBeforeImage(req) {
     return new rsvp.Promise(function(resolve, reject) {
-      var before = req.body['ds' + req.params.table]['prods:before']['tt'
-        + req.params.table][0];
-      _getPrimaryKey(req.broker, req.params.db, req.params.table).then(
+      var tableName = req.params.table;
+      var before = req.body['ds' + tableName]['prods:before'][tableName][0];
+      _getPrimaryKey(req.broker, req.params.db, tableName).then(
         function(primaryKey) {
           var pkMap = {};
           for ( var i in primaryKey) {
@@ -235,22 +237,16 @@ function JSDOHandler(akera) {
     });
   }
 
-  function _dsName(tableName) {
-    return 'ds' + tableName;
-  }
-
-  function _ttName(tableName) {
-    return 'tt' + tableName;
-  }
-
   function _sendReadResponse(rows, req, res) {
-    var table = req.params.table;
+    var tableName = req.params.table;
     if (self.asDataset === true) {
       var ds = {};
-      ds[_dsName(table)] = {};
-      ds[_dsName(table)][_ttName(table)] = rows instanceof Array ? rows
-        : [ rows ];
-      return res.status(200).json(ds);
+      var data = {};
+
+      ds[tableName] = rows instanceof Array ? rows : [ rows ];
+      data['ds' + tableName] = ds;
+
+      return res.status(200).json(data);
     }
 
     var ret = {};
