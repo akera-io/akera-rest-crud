@@ -15,15 +15,11 @@ function JSDOHandler(akera) {
     router.get(config.route + 'jsdo/metadata', self.getCatalog);
     router.get(config.route + 'jsdo/metadata/:db', self.getCatalog);
     router.get(config.route + 'jsdo/metadata/:db/:table', self.getCatalog);
-    router.get(config.route + 'jsdo/:db/:table/count', self.doCount);
+    router.use(config.route + 'jsdo/:db/:table/count', self.doCount);
     router.get(config.route + 'jsdo/:db/:table*', self.doSelect);
     router.post(config.route + 'jsdo/:db/:table', self.doCreate);
-    router.put(config.route
-      + (self.asDataset ? 'jsdo/:db/:table' : 'jsdo/:db/:table*'),
-      self.doUpdate);
-    router['delete'](config.route
-      + (self.asDataset ? 'jsdo/:db/:table' : 'jsdo/:db/:table*'),
-      self.doDelete);
+    router.put(config.route + 'jsdo/:db/:table', self.doUpdate);
+    router['delete'](config.route + 'jsdo/:db/:table', self.doDelete);
   };
 
   this.getCatalog = function(req, res) {
@@ -40,12 +36,12 @@ function JSDOHandler(akera) {
 
   this.doSelect = function(req, res) {
     var tableName = req.params.db + '.' + req.params.table;
-    
+
     var filter = {};
     if (req.query.filter && req.query.filter !== '') {
       filter = self.filter.fromKendo(req.query.filter);
     }
-    
+
     if (req.query.top && req.query.top !== '' && !isNaN(req.query.top)) {
       filter.limit = parseInt(req.query.top);
     }
@@ -84,10 +80,9 @@ function JSDOHandler(akera) {
         self.akera.error(err, res);
       });
     } else {
-      self.crudHandler.read(req.broker, tableName, filter).then(
-        function(rows) {
-          _sendReadResponse(rows, req, res);
-        })['catch'](function(err) {
+      self.crudHandler.read(req.broker, tableName, filter).then(function(rows) {
+        _sendReadResponse(rows, req, res);
+      })['catch'](function(err) {
         self.akera.error(err, res);
       });
     }
@@ -96,7 +91,7 @@ function JSDOHandler(akera) {
   this.doCreate = function(req, res) {
     if (req.body) {
       var tableName = req.params.db + '.' + req.params.table;
-      
+
       delete req.body._id;
       var newObject;
       try {
@@ -152,14 +147,13 @@ function JSDOHandler(akera) {
     var filter = req.query.filter && req.query.filter !== '' ? self.filter
       .fromKendo(req.query.filter) : {};
     filter.count = true;
-    self.crudHandler.read(req.broker, tableName, filter).then(
-      function(count) {
-        res.status(200).json({
-          count : count
-        });
-      }, function(err) {
-        self.akera.error(err, res);
+    self.crudHandler.read(req.broker, tableName, filter).then(function(count) {
+      res.status(200).json({
+        count : count
       });
+    }, function(err) {
+      self.akera.error(err, res);
+    });
   };
 
   this.filter = {

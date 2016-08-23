@@ -90,7 +90,9 @@ function _getDatabaseService(dbName, tables, asDataset) {
 }
 
 function _getTableResource(tableName, tableMeta, asDataset) {
-  var suffix = _getPkHttpSuffix(tableMeta, asDataset);
+  var paramName = asDataset ? 'ds' + tableName : tableName;
+  var xType = asDataset ? 'DATASET' : 'TABLE';
+
   var resource = {
     name : tableName,
     path : '\/' + tableName,
@@ -103,98 +105,95 @@ function _getTableResource(tableName, tableMeta, asDataset) {
       }
     },
     operations : [ {
-      path : '?filter={filter}&sort={sort}&skip={skip}&top={top}',
       type : 'read',
       verb : 'get',
+      path : '?filter={filter}&sort={sort}&skip={skip}&top={top}',
+      useBeforeImage : false,
       params : [ {
-        name : asDataset ? 'ds' + tableName : tableName,
-        type : 'REQUEST_BODY,RESPONSE_BODY'
+        name : "filter",
+        type : "PATH",
+        xType : "CHARACTER"
+      }, {
+        name : paramName,
+        type : 'RESPONSE_BODY',
+        xType : xType
       } ]
     }, {
-      path : '',
-      useBeforeImage : false,
       type : 'create',
       verb : 'post',
+      path : '',
+      useBeforeImage : true,
       params : [ {
-        name : asDataset ? 'ds' + tableName : tableName,
-        type : 'REQUEST_BODY,RESPONSE_BODY'
+        name : paramName,
+        type : 'REQUEST_BODY,RESPONSE_BODY',
+        xType : xType
       } ]
     }, {
-      path : suffix,
-      useBeforeImage : asDataset,
       type : 'update',
       verb : 'put',
+      path : '',
+      useBeforeImage : true,
       params : [ {
-        name : asDataset ? 'ds' + tableName : tableName,
-        type : 'REQUEST_BODY,RESPONSE_BODY'
+        name : paramName,
+        type : 'REQUEST_BODY,RESPONSE_BODY',
+        xType : xType
       } ]
     }, {
-      path : suffix,
-      useBeforeImage : asDataset,
       type : 'delete',
       verb : 'delete',
-      params : asDataset ? [ {
-        name : 'ds' + tableName,
-        type : 'REQUEST_BODY'
-      } ] : []
+      path : '',
+      useBeforeImage : true,
+      params : [ {
+        name : paramName,
+        type : 'REQUEST_BODY,RESPONSE_BODY',
+        xType : xType
+      } ]
     }, {
-      path : '/count?filter={filter}',
       name : 'count',
       type : 'invoke',
       verb : 'get',
+      path : '/count?filter={filter}',
       useBeforeImage : false,
       params : [ {
+        name : "filter",
+        type : "PATH",
+        xType : "CHARACTER"
+      }, {
         name : 'count',
         type : 'RESPONSE_BODY',
-        xType : 'number'
+        xType : 'integer'
       } ]
     } ]
   };
 
+  var tableSchema = {
+    type : 'array',
+    primaryKey : tableMeta.pk,
+    items : {
+      additionalProperties : false,
+      properties : {
+        _id : {
+          type : 'string'
+        },
+        errorString : {
+          type : 'string'
+        }
+      }
+    }
+  };
+
   if (asDataset === true) {
-    resource.schema.properties['ds' + tableName] = {
+    resource.schema.properties[paramName] = {
       type : 'object',
       additionalProperties : false,
       properties : {
 
       }
     };
-    resource.schema.properties['ds' + tableName].properties['tt' + tableName] = {
-      type : 'array',
-      primaryKey : tableMeta.pk,
-      items : {
-        additionalProperties : false,
-        properties : {
-          _id : {
-            type : 'string'
-          },
-          errorString : {
-            type : 'string'
-          }
-        }
-      }
-    };
+    resource.schema.properties[paramName].properties[tableName] = tableSchema;
   } else {
-    resource.schema.properties[tableName] = {
-      type : 'array',
-      primaryKey : tableMeta.pk,
-      items : {
-        additionalProperties : false,
-        properties : {
-          _id : {
-            type : 'string'
-          },
-          _errorString : {
-            type : 'string'
-          }
-        }
-      }
-    };
+    resource.schema.properties[tableName] = tableSchema;
   }
-
-  var tableNode = asDataset ? resource.schema.properties['ds' + tableName].properties['tt'
-    + tableName]
-    : resource.schema.properties[tableName];
 
   Object.keys(tableMeta.fields).forEach(function(fieldName) {
     var field = tableMeta.fields[fieldName];
@@ -212,20 +211,10 @@ function _getTableResource(tableName, tableMeta, asDataset) {
         type : prop.type
       };
     }
-    tableNode.items.properties[fieldName] = prop;
+    tableSchema.items.properties[fieldName] = prop;
   });
-  return resource;
-}
 
-function _getPkHttpSuffix(table, asDataset) {
-  if (asDataset === true) {
-    return '';
-  }
-  var suffix = '/';
-  table.pk.forEach(function(pkField) {
-    suffix += '{' + pkField + '}/';
-  });
-  return suffix;
+  return resource;
 }
 
 module.exports = JSDOCatalog;
