@@ -15,9 +15,9 @@ function JSDOHandler(akera) {
     router.get(config.route + 'jsdo/metadata', self.getCatalog);
     router.get(config.route + 'jsdo/metadata/:db', self.getCatalog);
     router.get(config.route + 'jsdo/metadata/:db/:table', self.getCatalog);
-    router.use(config.route + 'jsdo/:db/:table/count', self.doCount);
     router.get(config.route + 'jsdo/:db/:table*', self.doSelect);
     router.post(config.route + 'jsdo/:db/:table', self.doCreate);
+    router.put(config.route + 'jsdo/:db/:table/count', self.doCount);
     router.put(config.route + 'jsdo/:db/:table', self.doUpdate);
     router['delete'](config.route + 'jsdo/:db/:table', self.doDelete);
   };
@@ -149,7 +149,9 @@ function JSDOHandler(akera) {
     filter.count = true;
     self.crudHandler.read(req.broker, tableName, filter).then(function(count) {
       res.status(200).json({
-        count : count
+        response : {
+          numRecs : count
+        }
       });
     }, function(err) {
       self.akera.error(err, res);

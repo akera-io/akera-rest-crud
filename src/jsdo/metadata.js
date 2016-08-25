@@ -151,7 +151,7 @@ function _getTableResource(tableName, tableMeta, asDataset) {
       path : '/count?filter={filter}',
       useBeforeImage : false,
       params : [ {
-        name : 'count',
+        name : 'numRecs',
         type : 'RESPONSE_BODY',
         xType : 'integer'
       } ]
