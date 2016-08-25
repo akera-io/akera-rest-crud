@@ -147,7 +147,7 @@ function _getTableResource(tableName, tableMeta, asDataset) {
     }, {
       name : 'count',
       type : 'invoke',
-      verb : 'get',
+      verb : 'put',
       path : '/count?filter={filter}',
       useBeforeImage : false,
       params : [ {
