@@ -1,4 +1,5 @@
 var JSDOCatalog = require('./metadata.js');
+var FilterParser = require('../filter-parser.js');
 var rsvp = require('rsvp');
 
 function JSDOHandler(akera) {
@@ -38,8 +39,10 @@ function JSDOHandler(akera) {
     var tableName = req.params.db + '.' + req.params.table;
 
     var filter = {};
-    if (req.query.filter && req.query.filter !== '') {
-      filter = self.filter.fromKendo(req.query.filter);
+    var where = FilterParser.convert(req.query.filter);
+
+    if (where) {
+      filter.where = where;
     }
 
     if (req.query.top && req.query.top !== '' && !isNaN(req.query.top)) {
@@ -144,9 +147,15 @@ function JSDOHandler(akera) {
 
   this.doCount = function(req, res) {
     var tableName = req.params.db + '.' + req.params.table;
-    var filter = req.query.filter && req.query.filter !== '' ? self.filter
-      .fromKendo(req.query.filter) : {};
-    filter.count = true;
+    var where = FilterParser.convert(req.query.filter);
+    var filter = {
+      count : true
+    };
+
+    if (where) {
+      filter.where = where;
+    }
+
     self.crudHandler.read(req.broker, tableName, filter).then(function(count) {
       res.status(200).json({
         response : {
@@ -156,14 +165,6 @@ function JSDOHandler(akera) {
     }, function(err) {
       self.akera.error(err, res);
     });
-  };
-
-  this.filter = {
-    fromKendo : function(kendoFilter) {
-      return {
-        where : _convertKendoFilter(kendoFilter)
-      };
-    }
   };
 
   function _getUpdateDataFromDsUpdate(req) {
@@ -254,96 +255,6 @@ function JSDOHandler(akera) {
     var ret = {};
     ret[table] = rows instanceof Array ? rows : [ rows ];
     res.status(200).json(ret);
-  }
-
-  function _getClauseFromKendo(flt) {
-
-    if (!flt || !flt.operator)
-      return null;
-
-    var clause = {};
-    switch (flt.operator) {
-      case 'eq':
-        clause[flt.field] = {
-          eq : flt.value
-        };
-        break;
-      case 'neq':
-        clause[flt.field] = {
-          ne : flt.value
-        };
-        break;
-      case 'gte':
-        clause[flt.field] = {
-          ge : flt.value
-        };
-        break;
-      case 'lte':
-        clause[flt.field] = {
-          le : flt.value
-        };
-        break;
-      case 'lt':
-        clause[flt.field] = {
-          lt : flt.value
-        };
-        break;
-      case 'gt':
-        clause[flt.field] = {
-          gt : flt.value
-        };
-        break;
-      case 'contains':
-        clause[flt.field] = {
-          matches : '*' + flt.value + '*'
-        };
-        break;
-      case 'doesnotcontain': {
-        clause[flt.field] = {
-          not : {
-            matches : '*' + flt.value + '*'
-          }
-        };
-        break;
-      }
-      case 'startswith':
-        clause[flt.field] = {
-          matches : flt.value + '*'
-        };
-        break;
-      case 'endswith':
-        clause[flt.field] = {
-          matches : '*' + flt.value
-        };
-        break;
-      default:
-        throw new TypeError('Filter operator ' + flt.operator
-          + ' is not supported.');
-    }
-    return clause;
-  }
-
-  function _convertKendoFilter(filter) {
-    var restFilter = {};
-    if (typeof (filter) === 'string') {
-      filter = JSON.parse(filter);
-    }
-    if (filter.filters) {
-      if (filter.filters.length === 1) {
-        restFilter = _convertKendoFilter(filter.filters[0]);
-        return restFilter;
-      }
-      restFilter[filter.logic] = [];
-
-      filter.filters.forEach(function(flt) {
-        restFilter[filter.logic].push(_convertKendoFilter(flt));
-      });
-
-    } else {
-      return _getClauseFromKendo(filter);
-    }
-
-    return restFilter;
   }
 
 }
