@@ -1,6 +1,8 @@
 var akera = require('akera-api');
 var f = akera.query.filter;
 
+var rollbaseNoSpaceOperators = [ '=', '>', '<', '<>', '<=', '>=' ];
+
 function FilterParser() {}
 
 var convertKendoCriteria = function(flt) {
@@ -121,20 +123,44 @@ var parseGroup = function(filter, tree) {
 
 var parseField = function(filter, node) {
   var idx = filter.indexOf(' ');
+  var spLen = 1;
 
-  node.field = idx === -1 ? filter : filter.substr(0, idx);
+  for ( var op in rollbaseNoSpaceOperators) {
+    var opIdx = filter.indexOf(rollbaseNoSpaceOperators[op]);
+    if (opIdx !== -1 && (idx === -1 || opIdx < idx)) {
+      idx = opIdx;
+      spLen = 0;
+      break;
+    }
+  }
 
-  return idx === -1 ? null : filter.substr(idx + 1).trim();
+  if (idx === -1) {
+    node.field = filter;
+    return null;
+  }
+
+  node.field = filter.substr(0, idx);
+  return filter.substr(idx + spLen).trim();
 }
 
 var parseOperator = function(filter, node) {
   var idx = filter.indexOf(' ');
-  var op = idx === -1 ? filter : filter.substr(0, idx);
 
-  node.operator = op.toLowerCase();
+  for ( var op in rollbaseNoSpaceOperators) {
+    var opIdx = filter.indexOf(rollbaseNoSpaceOperators[op]);
+    if (opIdx !== -1 && (idx === -1 || opIdx < idx)) {
+      idx = rollbaseNoSpaceOperators[op].length;
+      break;
+    }
+  }
 
-  return idx === -1 ? null : filter.substr(idx + 1).trim();
+  if (idx === -1) {
+    node.operator = filter.toLowerCase();
+    return null;
+  }
 
+  node.operator = filter.substr(0, idx).toLowerCase();
+  return filter.substr(idx).trim();
 }
 
 var parseValue = function(filter, node) {
@@ -214,9 +240,6 @@ var fromRollbase = FilterParser.fromRollbase = function(filter) {
     tokens : []
   };
 
-  if (filter.indexOf(' ') === -1)
-    filter = filter.replace('=', ' eq ');
-
   var ablFilter = null;
 
   try {
@@ -255,9 +278,7 @@ FilterParser.convert = function(filter) {
     }
   } catch (err) {}
 
-  try {
-    return fromRollbase(filter);
-  } catch (err) {}
+  return fromRollbase(filter);
 }
 
 var fromKendo = FilterParser.fromKendo = function(filter) {

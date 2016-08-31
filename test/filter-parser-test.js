@@ -58,6 +58,13 @@ describe(
         should(filter).have.property('and');
         should(filter.and[0]).have.property('Region', 'West');
         should(filter.and[1]).have.property('State');
+
+        filter = FilterParser
+          .convert('{"ablFilter":"Region=\'West\' AND State BEGINS \'a\'"}');
+        
+        should(filter).have.property('and');
+        should(filter.and[0]).have.property('Region', 'West');
+        should(filter.and[1]).have.property('State');
       });
 
     it(
