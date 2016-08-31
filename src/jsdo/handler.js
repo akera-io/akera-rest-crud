@@ -40,16 +40,43 @@ function JSDOHandler(akera) {
 
     var filter = {};
     var where = FilterParser.convert(req.query.filter);
+    var limit = null;
+    var offset = null;
+
+    try {
+      var rollbaseFilter = JSON.parse(req.query.filter);
+
+      limit = getNumber(rollbaseFilter.top);
+      offset = getNumber(rollbaseFilter.skip);
+
+      if (rollbaseFilter.orderBy) {
+        filter.sort = rollbaseFilter.orderBy.split(',').map(function(sort) {
+          var by = sort.trim().split(' ');
+
+          if (by.length === 1)
+            return by;
+
+          var sortBy = {};
+          sortBy[by[0]] = by[by.length - 1] === 'desc';
+
+          return sortBy;
+        });
+      }
+    } catch (err) {}
 
     if (where) {
       filter.where = where;
     }
 
-    if (req.query.top && req.query.top !== '' && !isNaN(req.query.top)) {
-      filter.limit = parseInt(req.query.top);
+    limit = limit || getNumber(req.query.top);
+    offset = offset || getNumber(req.query.skip);
+
+    if (limit) {
+      filter.limit = parseInt(limit);
     }
-    if (req.query.skip && req.query.skip !== '' && !isNaN(req.query.skip)) {
-      filter.offset = parseInt(req.query.skip);
+
+    if (offset) {
+      filter.offset = parseInt(offset);
     }
 
     if (req.query.sort) {
@@ -57,7 +84,7 @@ function JSDOHandler(akera) {
         try {
           req.query.sort = JSON.parse(req.query.sort);
         } catch (e) {
-          filter.by = {
+          filter.sort = {
             field : req.query.sort
           };
         }
@@ -167,6 +194,18 @@ function JSDOHandler(akera) {
     });
   };
 
+  function getNumber(value) {
+    if (typeof value === 'number')
+      return value;
+
+    if (typeof value === 'string') {
+      value = value.trim();
+
+      if (value.length > 0 && !isNaN(value))
+        return parseFloat(value);
+    }
+  }
+
   function _getDatasetRow(req, state) {
     var tableName = req.params.table;
     var ds = req.body['ds' + tableName];
@@ -176,24 +215,24 @@ function JSDOHandler(akera) {
       var rows = tts.filter(function(row) {
         return row['prods:rowState'] === state;
       });
-      
+
       if (rows.length !== 1) {
         if (rows.length > 1)
           throw new Error('More than one record sent in request.');
         else
           throw new Error('No record found in request.');
       }
-      
+
       var data = rows[0];
-      
+
       Object.keys(data).forEach(function(field) {
         if (field.startsWith('prods:'))
           delete data[field];
       });
-      
+
       return data;
     }
-    
+
     throw new Error('Invalid table name or invalid request body specified.');
 
   }
