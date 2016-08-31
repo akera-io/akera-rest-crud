@@ -243,7 +243,13 @@ var fromRollbase = FilterParser.fromRollbase = function(filter) {
   var ablFilter = null;
 
   try {
-    ablFilter = JSON.parse(filter).ablFilter;
+    ablFilter = JSON.parse(filter);
+
+    if (Object.keys(ablFilter).length === 0)
+      return null;
+
+    if (ablFilter.ablFilter)
+      filter = ablFilter;
   } catch (err) {}
 
   if (ablFilter) {
