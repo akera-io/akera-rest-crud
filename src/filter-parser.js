@@ -3,24 +3,6 @@ var f = akera.query.filter;
 
 function FilterParser() {}
 
-var decodeValue = function(value) {
-  if (value === undefined || value === null || value === '?')
-    return null;
-
-  if (typeof value !== 'string')
-    return value;
-
-  value = value.trim();
-
-  if (value.indexOf('\'') === 0)
-    return value.substr(1, value.length - 2).replace(/''/g, '\'');
-
-  if (!isNaN(value))
-    return parseFloat(value);
-
-  return value === 'true';
-}
-
 var convertKendoCriteria = function(flt) {
 
   if (!flt || !flt.operator)
@@ -57,14 +39,220 @@ var convertKendoCriteria = function(flt) {
   return f[flt.operator](flt.field, flt.value);
 }
 
-var convert = FilterParser.convert = function(filter) {
+var convertRollbaseCriteria = function(flt) {
+
+  if (!flt || !flt.operator)
+    return null;
+
+  switch (flt.operator) {
+    case '=':
+      flt.operator = f.operator.eq;
+      break;
+    case '<>':
+      flt.operator = f.operator.ne;
+      break;
+    case '>':
+      flt.operator = f.operator.gt;
+      break;
+    case '<':
+      flt.operator = f.operator.lt;
+      break;
+    case '>=':
+      flt.operator = f.operator.ge;
+      break;
+    case '<=':
+      flt.operator = f.operator.le;
+      break;
+  }
+
+  return f[flt.operator](flt.field, flt.value);
+}
+
+var parseGroup = function(filter, tree) {
+
+  var hasPhar = filter.charAt(0) === '(';
+  var group = {
+    tokens : []
+  };
+
+  if (hasPhar)
+    filter = filter.substr(1).trim();
+
+  while (filter !== null && filter.length > 0) {
+
+    if (hasPhar && filter.charAt(0) === ')')
+      break;
+
+    // conditions are grouped with logical operators
+    if (group.tokens.length > 0) {
+      var op = {};
+      filter = parseOperator(filter, op);
+      group.group = group.group || op.operator;
+
+      if (group.group !== op.operator)
+        throw new Error('All logical operators in a group must be the same.');
+    }
+
+    // we have a nested group
+    if (filter.charAt(0) === '(')
+      filter = parseGroup(filter, group);
+    else {
+      var criteria = {};
+      filter = parseField(filter, criteria);
+      filter = parseOperator(filter, criteria);
+      filter = parseValue(filter, criteria);
+
+      group.tokens.push(criteria);
+    }
+  }
+
+  if (hasPhar) {
+    if (!filter || filter.charAt(0) !== ')')
+      throw new Error('Invalid group');
+    filter = filter.substr(1);
+  }
+
+  tree.tokens = tree.tokens || [];
+  tree.tokens.push(group);
+
+  return filter ? filter.trim() : null;
+
+}
+
+var parseField = function(filter, node) {
+  var idx = filter.indexOf(' ');
+
+  node.field = idx === -1 ? filter : filter.substr(0, idx);
+
+  return idx === -1 ? null : filter.substr(idx + 1).trim();
+}
+
+var parseOperator = function(filter, node) {
+  var idx = filter.indexOf(' ');
+  var op = idx === -1 ? filter : filter.substr(0, idx);
+
+  node.operator = op.toLowerCase();
+
+  return idx === -1 ? null : filter.substr(idx + 1).trim();
+
+}
+
+var parseValue = function(filter, node) {
+  var value = null;
+  var idx = 1;
+
+  if (filter.charAt(0) === '\'') {
+    while (idx < filter.length) {
+      if (filter.charAt(idx) === '\'') {
+
+        if (idx === filter.length - 1 || filter.charAt(idx + 1) !== '\'') {
+          value = filter.substr(1, idx - 1);
+          filter = idx === filter.length ? null : filter.substr(idx + 1).trim();
+          break;
+        }
+
+        idx++;
+      }
+
+      idx++;
+    }
+
+    if (value === null)
+      throw new Error('Invalid string value.');
+
+  } else {
+    idx = filter.indexOf(' ');
+
+    if (idx === -1) {
+      value = filter;
+      filter = null;
+    } else {
+      value = filter.substr(0, idx);
+      filter = filter.substr(idx + 1).trim();
+    }
+
+    if (value === '?')
+      value = null;
+    else if (!isNaN(value))
+      value = parseFloat(value);
+    else
+      value = value === 'true';
+  }
+
+  node.value = value;
+
+  return filter;
+}
+
+var convertRollbaseTree = function(tree) {
+
+  if (!tree)
+    return null;
+
+  if (tree.group) {
+    var conditions = tree.tokens.map(function(token) {
+      return convertRollbaseTree(token);
+    });
+
+    return f[tree.group](conditions);
+  } else {
+    if (tree.field && tree.value !== undefined) {
+      tree.operator = tree.operator || f.operator.eq;
+      convertRollbaseCriteria(tree);
+      return f[tree.operator](tree.field, tree.value);
+    }
+
+    if (tree.tokens && tree.tokens.length === 1)
+      return convertRollbaseTree(tree.tokens[0]);
+  }
+
+  return null;
+}
+
+var fromRollbase = FilterParser.fromRollbase = function(filter) {
+  var tree = {
+    tokens : []
+  };
+
+  if (filter.indexOf(' ') === -1)
+    filter = filter.replace('=', ' eq ');
+
+  var ablFilter = null;
+
+  try {
+    ablFilter = JSON.parse(filter).ablFilter;
+  } catch (err) {}
+
+  if (ablFilter) {
+    filter = ablFilter;
+  }
+
+  while (filter !== null) {
+    // conditions are grouped with logical operators
+    if (tree.tokens.length > 0) {
+      var op = {};
+      filter = parseOperator(filter, op);
+      tree.group = tree.group || op.operator;
+
+      if (tree.group !== op.operator)
+        throw new Error('All logical operators in a group must be the same.');
+    }
+
+    filter = parseGroup(filter, tree);
+  }
+
+  return convertRollbaseTree(tree);
+}
+
+FilterParser.convert = function(filter) {
   if (!filter || (typeof filter === 'string' && filter.trim().length === 0))
     return null;
 
   try {
     var kendoFilter = fromKendo(filter);
-    if (kendoFilter)
+    if (kendoFilter) {
       return kendoFilter;
+    }
   } catch (err) {}
 
   try {
@@ -85,116 +273,20 @@ var fromKendo = FilterParser.fromKendo = function(filter) {
     filter = JSON.parse(filter);
   }
 
-  if (filter.filters)
-    return fromKendo(filter.filters);
+  var group = filter.logic || 'and';
+  filter = filter.filters || filter;
 
-  if (filter.filters) {
-    if (filter.filters.length === 1) {
-      return convertKendoCriteria(filter.filters[0]);
-    }
-
-    var filters = filter.filters.map(function(flt) {
-      return convertKendoCriteria(flt);
-    });
-
-    return f[filter.logic](filters);
-  }
-
-}
-
-var fromRollbase = FilterParser.fromRollbase = function(filter, init) {
-  if (!filter)
-    return null;
-
-  if (filter.ablFilter)
-    return fromRollbase(filter.ablFilter);
-
-  if (typeof filter !== 'string')
-    throw new Error('Invalid filter');
-
-  try {
-    var jsonFilter = JSON.parse(filter);
-    return fromRollbase(jsonFilter.ablFilter);
-  } catch (err) {}
-
-  var chunks = null;
-
-  // special case for PK filter: key=value
-  if (filter.indexOf('=') !== -1
-    && (filter.indexOf(' ') === -1 || filter.indexOf('=') < filter.indexOf(' ')))
-  {
-    chunks = filter.split('=');
-    return f.eq(chunks[0], decodeValue(chunks[1]));
-  }
-
-  init = init || {
-    criteria : []
-  };
-
-  chunks = filter.split(' ');
-  var field = null;
-  var op = null;
-  var val = null;
-  var strVal = null;
-  var lastIdx = 0;
-  var group = null;
-
-  for ( var i in chunks) {
-    var entry = chunks[i];
-
-    if (!field || !op) {
-      if (entry === '')
-        continue;
-
-      if (!field)
-        field = entry;
-      else
-        op = entry.toLowerCase();
-      continue;
+  if (filter instanceof Array) {
+    if (filter.length === 1) {
+      return convertKendoCriteria(filter[0]);
     } else {
-      if (val === null) {
-        if (strVal !== null) {
-          strVal += ' ' + entry;
-          if (entry !== '' && entry.lastIndexOf('\'') === entry.length - 1)
-            val = strVal;
-        } else {
-          if (entry.indexOf('\'') === 0) {
-            lastIdx = entry.lastIndexOf('\'');
-            if (lastIdx > 0 && entry.lastIndexOf('\'', lastIdx) !== lastIdx - 1)
-              val = entry;
-            else
-              strVal = entry;
-          } else
-            val = entry;
-        }
-
-        if (val !== null) {
-          init.criteria.push(f[op](field, decodeValue(val)));
-          filter = '';
-        }
-      } else {
-        if (group === null) {
-          if (entry !== '') {
-            group = entry.toLowerCase();
-            init.group = init.group || group;
-          }
-          continue;
-        }
-
-        filter += ' ' + entry;
-      }
+      return f[group](filter.map(function(flt) {
+        return convertKendoCriteria(flt);
+      }));
     }
+  } else {
+    return convertKendoCriteria(filter);
   }
-
-  filter = filter.trim();
-
-  if (filter.length > 0)
-    fromRollbase(filter, init);
-
-  if (init.criteria.length === 1)
-    return init.criteria[0];
-
-  return f[init.group || 'and'](init.criteria);
 }
 
 module.exports = FilterParser;

@@ -98,7 +98,7 @@ function JSDOHandler(akera) {
       delete req.body._id;
       var newObject;
       try {
-        newObject = self.asDataset === true ? _getDataFromDataset(req)
+        newObject = self.asDataset === true ? _getDatasetRow(req, 'created')
           : req.body;
       } catch (e) {
         return self.akera.error(e, res);
@@ -123,7 +123,7 @@ function JSDOHandler(akera) {
       pkFn(req).then(
         function(pkMap) {
           return self.crudHandler.update(req.broker, tableName, pkMap,
-            self.asDataset ? _getUpdateDataFromDsUpdate(req) : req.body);
+            self.asDataset ? _getDatasetRow(req, 'modified') : req.body);
         }).then(function(rows) {
         _sendReadResponse(rows, req, res);
       })['catch'](function(err) {
@@ -167,27 +167,35 @@ function JSDOHandler(akera) {
     });
   };
 
-  function _getUpdateDataFromDsUpdate(req) {
+  function _getDatasetRow(req, state) {
     var tableName = req.params.table;
-    var update = req.body['ds' + tableName][tableName][0];
-    delete update['prods:clientId'];
-    delete update['prods:id'];
-    delete update['prods:rowState'];
-    return update;
-  }
+    var ds = req.body['ds' + tableName];
+    var tts = ds && ds[tableName];
 
-  function _getDataFromDataset(req) {
-    var tableName = req.params.table;
-    var tts = req.body['ds' + tableName][tableName];
-    if (!tts)
-      throw new Error(
-        'Invalid table name or invalid request body specified. Request body must have property '
-          + tableName);
-    if (tts instanceof Array) {
-      tts = tts[0];
+    if (tts && tts instanceof Array) {
+      var rows = tts.filter(function(row) {
+        return row['prods:rowState'] === state;
+      });
+      
+      if (rows.length !== 1) {
+        if (rows.length > 1)
+          throw new Error('More than one record sent in request.');
+        else
+          throw new Error('No record found in request.');
+      }
+      
+      var data = rows[0];
+      
+      Object.keys(data).forEach(function(field) {
+        if (field.startsWith('prods:'))
+          delete data[field];
+      });
+      
+      return data;
     }
-    delete tts._id;
-    return tts;
+    
+    throw new Error('Invalid table name or invalid request body specified.');
+
   }
 
   function _getPkFromQueryString(req) {
@@ -242,19 +250,18 @@ function JSDOHandler(akera) {
 
   function _sendReadResponse(rows, req, res) {
     var tableName = req.params.table;
+    var result = {};
+
     if (self.asDataset === true) {
       var ds = {};
-      var data = {};
 
       ds[tableName] = rows instanceof Array ? rows : [ rows ];
-      data['ds' + tableName] = ds;
-
-      return res.status(200).json(data);
+      result['ds' + tableName] = ds;
+    } else {
+      result[tableName] = rows instanceof Array ? rows : [ rows ];
     }
 
-    var ret = {};
-    ret[table] = rows instanceof Array ? rows : [ rows ];
-    res.status(200).json(ret);
+    res.status(200).json(result);
   }
 
 }

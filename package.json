@@ -20,7 +20,7 @@
   },
   "main": "index.js",
   "dependencies": {
-    "akera-api": ">=1.0.15",
+    "akera-api": ">=1.0.17",
     "async": "^2.0.1",
     "rsvp": "^3.2.1"
   },

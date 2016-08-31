@@ -146,10 +146,10 @@ describe('JSDO Handler - Crud (as datasets)', function() {
       else {
         try {
           should(data).have.property('dscustomer');
-          should(data.dscustomer).have.property('ttcustomer');
-          var ttCustomer = data.dscustomer.ttcustomer;
-          should(ttCustomer).be.an.instanceOf(Array);
-          should(ttCustomer[0]).have.properties([ 'CustNum', 'Name', 'Country',
+          should(data.dscustomer).have.property('customer');
+          var customer = data.dscustomer.customer;
+          should(customer).be.an.instanceOf(Array);
+          should(customer[0]).have.properties([ 'CustNum', 'Name', 'Country',
             'City' ]);
           done();
         } catch (e) {
@@ -175,12 +175,12 @@ describe('JSDO Handler - Crud (as datasets)', function() {
         done(new Error(err.message));
       else {
         try {
-          var ttCustomer = data.dscustomer.ttcustomer;
-          should(ttCustomer).be.an.instanceOf(Array);
-          (ttCustomer.length).should.be.exactly(5);
-          should(ttCustomer[0]).have.properties([ 'CustNum', 'Name', 'Country',
+          var customer = data.dscustomer.customer;
+          should(customer).be.an.instanceOf(Array);
+          (customer.length).should.be.exactly(5);
+          should(customer[0]).have.properties([ 'CustNum', 'Name', 'Country',
             'City' ]);
-          (ttCustomer[0].CustNum).should.be.exactly(1);
+          (customer[0].CustNum).should.be.exactly(1);
           done();
         } catch (err) {
           done(err);
@@ -211,12 +211,41 @@ describe('JSDO Handler - Crud (as datasets)', function() {
         done(new Error(err.message));
       else {
         try {
-          var ttCustomer = data.dscustomer.ttcustomer;
-          should(ttCustomer).be.an.instanceOf(Array);
-          (ttCustomer.length).should.be.exactly(1);
-          should(ttCustomer[0]).have.properties([ 'CustNum', 'Name', 'Country',
+          var customer = data.dscustomer.customer;
+          should(customer).be.an.instanceOf(Array);
+          (customer.length).should.be.exactly(1);
+          should(customer[0]).have.properties([ 'CustNum', 'Name', 'Country',
             'City' ]);
-          (ttCustomer[0].CustNum).should.be.exactly(5);
+          (customer[0].CustNum).should.be.exactly(5);
+          done();
+        } catch (err) {
+          done(err);
+        }
+
+      }
+    }));
+  });
+  
+  it('should read customer records with rollbase filter', function(done) {
+    this.timeout(10000);
+
+    var req = new Request().reqParams({
+      db : 'sports2000',
+      table : 'customer'
+    }).reqBroker(broker).queryString({
+      filter : 'CustNum=5'
+    });
+    jsdo.doSelect(req, new Response(function(err, data) {
+      if (err)
+        done(new Error(err.message));
+      else {
+        try {
+          var customer = data.dscustomer.customer;
+          should(customer).be.an.instanceOf(Array);
+          (customer.length).should.be.exactly(1);
+          should(customer[0]).have.properties([ 'CustNum', 'Name', 'Country',
+            'City' ]);
+          (customer[0].CustNum).should.be.exactly(5);
           done();
         } catch (err) {
           done(err);
@@ -239,8 +268,9 @@ describe('JSDO Handler - Crud (as datasets)', function() {
         done(new Error(err.message));
       else {
         try {
-          should(data).have.property('count');
-          should(data.count).be.above(1);
+          should(data).have.property('response');
+          should(data.response).have.property('numRecs');
+          should(data.response.numRecs).be.above(1);
           done();
         } catch (err) {
           done(err);
@@ -270,8 +300,32 @@ describe('JSDO Handler - Crud (as datasets)', function() {
         done(new Error(err.message));
       else {
         try {
-          should(data).have.property('count');
-          should(data.count).be.exactly(4);
+          should(data).have.property('response');
+          should(data.response).have.property('numRecs', 4);
+          done();
+        } catch (err) {
+          done(err);
+        }
+      }
+    }));
+  });
+  
+  it('should count customers with rollbase filter', function(done) {
+    this.timeout(10000);
+    var req = new Request().reqParams({
+      db : 'sports2000',
+      table : 'customer'
+    }).queryString({
+      filter : 'CustNum=5'
+    }).reqBroker(broker);
+
+    jsdo.doCount(req, new Response(function(err, data) {
+      if (err)
+        done(new Error(err.message));
+      else {
+        try {
+          should(data).have.property('response');
+          should(data.response).have.property('numRecs', 1);
           done();
         } catch (err) {
           done(err);
@@ -284,15 +338,20 @@ describe('JSDO Handler - Crud (as datasets)', function() {
     this.timeout(10000);
 
     var name = 'Medu - ' + new Date().toString();
-    
+
     var req = new Request().reqBroker(broker).reqParams({
       db : 'sports2000',
       table : 'progress'
     }).reqBody({
-      ttcustomer : [ {
-        Name : name,
-        City : 'Cluj'
-      } ]
+      "dscustomer" : {
+        "prods:hasChanges" : true,
+        "customer" : [ {
+          "prods:rowState" : "created",
+          "prods:clientId" : "1472579267707-11",
+          "Name" : name,
+          "City" : "Cluj"
+        } ]
+      }
     });
 
     jsdo.doCreate(req, new Response(function(err, data) {
@@ -311,10 +370,15 @@ describe('JSDO Handler - Crud (as datasets)', function() {
       db : 'sports2000',
       table : 'customer'
     }).reqBody({
-      ttcustomer : [ {
-        Name : name,
-        City : 'Cluj'
-      } ]
+      "dscustomer" : {
+        "prods:hasChanges" : true,
+        "customer" : [ {
+          "prods:rowState" : "created",
+          "prods:clientId" : "1472579267707-11",
+          "Name" : name,
+          "City" : "Cluj"
+        } ]
+      }
     });
 
     jsdo.doCreate(req, new Response(function(err, data) {
@@ -322,8 +386,8 @@ describe('JSDO Handler - Crud (as datasets)', function() {
         done(new Error(err.message));
       else {
         try {
-          should(data.dscustomer.ttcustomer).be.an.instanceOf(Array);
-          data = data.dscustomer.ttcustomer[0];
+          should(data.dscustomer.customer).be.an.instanceOf(Array);
+          data = data.dscustomer.customer[0];
           should(data).be.an.instanceOf(Object);
           should(data).have
             .properties([ 'CustNum', 'Name', 'Country', 'City' ]);
@@ -350,11 +414,12 @@ describe('JSDO Handler - Crud (as datasets)', function() {
     }).reqBody({
       dscustomer : {
         'prods:before' : {
-          ttcustomer : [ {
+          customer : [ {
             CustNum : 5
           } ]
         },
-        ttcustomer : [ {
+        customer : [ {
+          'prods:rowState': 'modified',
           Address2 : addr,
           Balance : 8080
         } ]
@@ -366,8 +431,8 @@ describe('JSDO Handler - Crud (as datasets)', function() {
           done(new Error(err.message));
         else {
           try {
-            should(data.dscustomer.ttcustomer).be.an.instanceOf(Array);
-            data = data.dscustomer.ttcustomer;
+            should(data.dscustomer.customer).be.an.instanceOf(Array);
+            data = data.dscustomer.customer;
 
             should(data[0]).have
               .properties([ 'CustNum', 'Balance', 'Address2' ]);
@@ -390,7 +455,7 @@ describe('JSDO Handler - Crud (as datasets)', function() {
     }).reqBody({
       dscustomer : {
         'prods:before' : {
-          ttcustomer : [ {
+          customer : [ {
             CustNum : newCustomer
           } ]
         }

@@ -236,8 +236,9 @@ describe('JSDO Handler - Crud (as tables)', function() {
         done(new Error(err.message));
       else {
         try {
-          should(data).have.property('count');
-          should(data.count).be.above(1);
+          should(data).have.property('response');
+          should(data.response).have.property('numRecs');
+          should(data.response.numRecs).be.above(1);
           done();
         } catch (err) {
           done(err);
@@ -267,8 +268,8 @@ describe('JSDO Handler - Crud (as tables)', function() {
         done(new Error(err.message));
       else {
         try {
-          should(data).have.property('count');
-          should(data.count).be.exactly(4);
+          should(data).have.property('response');
+          should(data.response).have.property('numRecs', 4);
           done();
         } catch (err) {
           done(err);
