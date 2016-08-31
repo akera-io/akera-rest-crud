@@ -84,9 +84,9 @@ describe('Akera Metadata', function() {
   });
   
   it('should load sport database', function(done) {
-    this.timeout(10000);
+    this.timeout(20000);
 
-    meta.getDatabase(broker, 'sports2000').then(function(db) {
+    meta.getDatabase(broker, 'sports2000', true).then(function(db) {
       try {
         should(db).be.an.instanceOf(Object);
         should(db.table).have.properties([ 'customer', 'order', 'item' ]);

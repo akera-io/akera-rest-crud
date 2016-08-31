@@ -4,7 +4,6 @@ var rsvp = require('rsvp');
 
 function AkeraMetaData() {
   this.cache = {};
-
 }
 
 AkeraMetaData.prototype.getDatabases = function(broker, fullLoad) {
@@ -70,47 +69,44 @@ AkeraMetaData.prototype.getDatabases = function(broker, fullLoad) {
 AkeraMetaData.prototype.getDatabase = function(broker, db, fullLoad) {
   var self = this;
 
-  return new rsvp.Promise(
-    function(resolve, reject) {
-      if (!broker || !broker.alias)
-        reject(new Error('Invalid broker.'));
+  return new rsvp.Promise(function(resolve, reject) {
+    if (!broker || !broker.alias)
+      reject(new Error('Invalid broker.'));
 
-      if (typeof db !== 'number'
-        && (typeof db !== 'string' || db.trim().length === 0))
-        reject(new Error('Invalid database name.'));
+    if (typeof db !== 'number'
+      && (typeof db !== 'string' || db.trim().length === 0))
+      reject(new Error('Invalid database name.'));
 
-      if (typeof db === 'string')
-        db = db.trim().toLowerCase();
+    if (typeof db === 'string')
+      db = db.trim().toLowerCase();
 
-      var brokerInfo = self.cache[broker.alias];
-      var dbInfo = brokerInfo && brokerInfo.db && brokerInfo.db[db];
+    var brokerInfo = self.cache[broker.alias];
+    var dbInfo = brokerInfo && brokerInfo.db && brokerInfo.db[db];
 
-      if (dbInfo
-        && (dbInfo.fullyLoaded === true || (!fullLoad && dbInfo.numTables === dbInfo.loadedTables)))
-      {
-        return resolve(dbInfo);
+    if (dbInfo && (dbInfo.fullyLoaded === true || !fullLoad)) {
+      return resolve(dbInfo);
+    }
+
+    akera.connect(broker).then(function(conn) {
+      self._conn = conn;
+      return conn.getMetaData().getDatabase(db);
+    }).then(function(dbMeta) {
+      db = dbMeta.getLname().trim().toLowerCase();
+      return self.loadDatabase(dbMeta, fullLoad);
+    }).then(function(info) {
+      if (!brokerInfo) {
+        brokerInfo = {};
+        self.cache[broker.alias] = brokerInfo;
       }
 
-      akera.connect(broker).then(function(conn) {
-        self._conn = conn;
-        return conn.getMetaData().getDatabase(db);
-      }).then(function(dbMeta) {
-        db = dbMeta.getLname().trim().toLowerCase();
-        return self.loadDatabase(dbMeta, fullLoad);
-      }).then(function(info) {
-        if (!brokerInfo) {
-          brokerInfo = {};
-          self.cache[broker.alias] = brokerInfo;
-        }
+      brokerInfo.db = brokerInfo.db || {};
+      brokerInfo.db[db] = info;
 
-        brokerInfo.db = brokerInfo.db || {};
-        brokerInfo.db[db] = info;
-
-        self.disconnect(resolve, info);
-      })['catch'](function(err) {
-        self.disconnect(reject, err);
-      });
+      self.disconnect(resolve, info);
+    })['catch'](function(err) {
+      self.disconnect(reject, err);
     });
+  });
 };
 
 AkeraMetaData.prototype.getTables = function(broker, db, fullLoad) {
@@ -226,6 +222,8 @@ AkeraMetaData.prototype.getTable = function(broker, db, table) {
       if (!numTables) {
         databaseMeta.getNumTables().then(function(num) {
           dbInfo.numTables = num;
+          dbInfo.fullyLoaded = dbInfo.loadedTables === num;
+
           self.disconnect(resolve, info);
         }, function(err) {
           self.disconnect(reject, err);
