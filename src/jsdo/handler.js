@@ -285,18 +285,23 @@ function JSDOHandler(akera) {
   }
 
   function _getPkFromBeforeImage(req) {
-    return new rsvp.Promise(function(resolve, reject) {
-      var tableName = req.params.table;
-      var before = req.body['ds' + tableName]['prods:before'][tableName][0];
-      _getPrimaryKey(req.broker, req.params.db, tableName).then(
-        function(primaryKey) {
-          var pkMap = {};
-          for ( var i in primaryKey) {
-            pkMap[primaryKey[i]] = before[primaryKey[i]];
-          }
-          resolve(pkMap);
-        }, reject);
-    });
+    return new rsvp.Promise(
+      function(resolve, reject) {
+        var tableName = req.params.table;
+        var before = req.body['ds' + tableName] ? req.body['ds' + tableName]['prods:before'][tableName][0]
+          : req.body[0];
+        
+        console.log(before);
+        _getPrimaryKey(req.broker, req.params.db, tableName).then(
+          function(primaryKey) {
+            var pkMap = {};
+            for ( var i in primaryKey) {
+              pkMap[primaryKey[i]] = before[primaryKey[i]];
+            }
+            console.log('pk', pkMap);
+            resolve(pkMap);
+          }, reject);
+      });
   }
 
   function _sendReadResponse(rows, req, res) {
