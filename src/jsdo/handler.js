@@ -213,7 +213,7 @@ function JSDOHandler(akera) {
 
     if (tts instanceof Array) {
       var rows = tts.filter(function(row) {
-        return row['prods:rowState'] === state;
+        return row['prods:rowState'] === undefined || row['prods:rowState'] === state;
       });
 
       if (rows.length !== 1) {
@@ -231,18 +231,6 @@ function JSDOHandler(akera) {
       });
 
       return data;
-    }
-
-    // rollbase doesn't care about before image settings, it just send the data
-    if (req.body instanceof Array) {
-      if (req.body.length !== 1) {
-        if (req.body.length > 1)
-          throw new Error('More than one record sent in request.');
-        else
-          throw new Error('No record found in request.');
-      }
-
-      return req.body[0];
     }
 
     throw new Error('Invalid table name or invalid request body specified.');
@@ -285,23 +273,29 @@ function JSDOHandler(akera) {
   }
 
   function _getPkFromBeforeImage(req) {
-    return new rsvp.Promise(
-      function(resolve, reject) {
-        var tableName = req.params.table;
-        var before = req.body['ds' + tableName] ? req.body['ds' + tableName]['prods:before'][tableName][0]
-          : req.body[0];
-        
-        console.log(before);
-        _getPrimaryKey(req.broker, req.params.db, tableName).then(
-          function(primaryKey) {
-            var pkMap = {};
-            for ( var i in primaryKey) {
-              pkMap[primaryKey[i]] = before[primaryKey[i]];
-            }
-            console.log('pk', pkMap);
-            resolve(pkMap);
-          }, reject);
-      });
+    return new rsvp.Promise(function(resolve, reject) {
+      var tableName = req.params.table;
+      var ds = req.body['ds' + tableName];
+      var before = null;
+
+      if (ds) {
+        if (ds['prods:before'])
+          before = ds['prods:before'][tableName][0];
+        else
+          before = ds[tableName][0];
+      } else {
+        before = req.body[0];
+      }
+
+      _getPrimaryKey(req.broker, req.params.db, tableName).then(
+        function(primaryKey) {
+          var pkMap = {};
+          for ( var i in primaryKey) {
+            pkMap[primaryKey[i]] = before[primaryKey[i]];
+          }
+          resolve(pkMap);
+        }, reject);
+    });
   }
 
   function _sendReadResponse(rows, req, res) {

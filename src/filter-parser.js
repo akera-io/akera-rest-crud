@@ -240,20 +240,14 @@ var fromRollbase = FilterParser.fromRollbase = function(filter) {
     tokens : []
   };
 
-  var ablFilter = null;
-
   try {
-    ablFilter = JSON.parse(filter);
+    var ablFilter = JSON.parse(filter);
 
     if (ablFilter.ablFilter)
-      filter = ablFilter;
+      filter = ablFilter.ablFilter;
     else
       return null;
   } catch (err) {}
-
-  if (ablFilter) {
-    filter = ablFilter;
-  }
 
   while (filter !== null) {
     // conditions are grouped with logical operators

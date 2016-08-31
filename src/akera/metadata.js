@@ -75,6 +75,13 @@ AkeraMetaData.prototype.getDatabase = function(broker, db, fullLoad) {
       if (!broker || !broker.alias)
         reject(new Error('Invalid broker.'));
 
+      if (typeof db !== 'number'
+        && (typeof db !== 'string' || db.trim().length === 0))
+        reject(new Error('Invalid database name.'));
+
+      if (typeof db === 'string')
+        db = db.trim().toLowerCase();
+
       var brokerInfo = self.cache[broker.alias];
       var dbInfo = brokerInfo && brokerInfo.db && brokerInfo.db[db];
 
@@ -88,7 +95,7 @@ AkeraMetaData.prototype.getDatabase = function(broker, db, fullLoad) {
         self._conn = conn;
         return conn.getMetaData().getDatabase(db);
       }).then(function(dbMeta) {
-        db = dbMeta.getLname().toLowerCase();
+        db = dbMeta.getLname().trim().toLowerCase();
         return self.loadDatabase(dbMeta, fullLoad);
       }).then(function(info) {
         if (!brokerInfo) {
@@ -113,6 +120,13 @@ AkeraMetaData.prototype.getTables = function(broker, db, fullLoad) {
     if (!broker || !broker.alias)
       reject(new Error('Invalid broker.'));
 
+    if (typeof db !== 'number'
+      && (typeof db !== 'string' || db.trim().length === 0))
+      reject(new Error('Invalid database name.'));
+
+    if (typeof db === 'string')
+      db = db.trim().toLowerCase();
+
     var brokerInfo = self.cache[broker.alias];
     var dbInfo = brokerInfo && brokerInfo.db && brokerInfo.db[db];
 
@@ -124,7 +138,7 @@ AkeraMetaData.prototype.getTables = function(broker, db, fullLoad) {
       self._conn = conn;
       return conn.getMetaData().getDatabase(db);
     }).then(function(dbMeta) {
-      db = dbMeta.getLname().toLowerCase();
+      db = dbMeta.getLname().trim().toLowerCase();
       return self.loadDatabase(dbMeta, fullLoad);
     }).then(function(info) {
       if (!brokerInfo) {
@@ -152,6 +166,20 @@ AkeraMetaData.prototype.getTable = function(broker, db, table) {
     if (!broker || !broker.alias)
       reject(new Error('Invalid broker.'));
 
+    if (typeof db !== 'number'
+      && (typeof db !== 'string' || db.trim().length === 0))
+      reject(new Error('Invalid database name.'));
+
+    if (typeof db === 'string')
+      db = db.trim().toLowerCase();
+
+    if (typeof table !== 'number'
+      && (typeof table !== 'string' || table.trim().length === 0))
+      reject(new Error('Invalid table name.'));
+
+    if (typeof table === 'string')
+      table = table.trim().toLowerCase();
+
     var brokerInfo = self.cache[broker.alias];
     var dbInfo = brokerInfo && brokerInfo.db && brokerInfo.db[db];
     var tableInfo = dbInfo && dbInfo.table && dbInfo.table[table];
@@ -168,13 +196,13 @@ AkeraMetaData.prototype.getTable = function(broker, db, table) {
     }).then(function(dbMeta) {
       if (!numTables)
         databaseMeta = dbMeta;
-      
-      db = dbMeta.getLname().toLowerCase();
-      
+
+      db = dbMeta.getLname().trim().toLowerCase();
+
       return dbMeta.getTable(table);
     }).then(function(tableMeta) {
-      table = tableMeta.getName().toLowerCase();
-      
+      table = tableMeta.getName().trim().toLowerCase();
+
       return self.loadTable(tableMeta);
     }).then(function(info) {
       if (!dbInfo) {
