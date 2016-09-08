@@ -12,7 +12,7 @@ function JSDOHandler(akera) {
   this.metadata = new JSDOCatalog(this.akeraMetadata);
 
   this.init = function(config, router) {
-    self.asDataset = config.jsdo && config.jsdo.asDataset === true;
+    self.asDataset = config.jsdo && config.jsdo.asDataset === false ? false : true;
     router.get(config.route + 'jsdo/metadata', self.getCatalog);
     router.get(config.route + 'jsdo/metadata/:db', self.getCatalog);
     router.get(config.route + 'jsdo/metadata/:db/:table', self.getCatalog);

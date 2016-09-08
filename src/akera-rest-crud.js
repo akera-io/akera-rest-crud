@@ -61,26 +61,26 @@ function AkeraRestCrud(akeraWebApp) {
     config = config || {};
     akeraApp = router.__app;
     config.route = akeraApp.getRoute(config.route || '/rest/crud/');
-    config.serviceInterface = config.serviceInterface || 'rest';
+    config.interfaces = config.interfaces || config.serviceInterface || 'rest';
 
-    if (config.serviceInterface instanceof Array) {
-      if (config.serviceInterface.length === 0) {
+    if (config.interfaces instanceof Array) {
+      if (config.interfaces.length === 0) {
         self.setupInterface('rest', config, router);
       } else {
         // Service interfaces need to be configured in order, otherwise path
         // mappings will conflict
-        if (config.serviceInterface.indexOf('jsdo') >= 0) {
+        if (config.interfaces.indexOf('jsdo') >= 0) {
           self.setupInterface('jsdo', config, router);
         }
-        if (config.serviceInterface.indexOf('odata') >= 0) {
+        if (config.interfaces.indexOf('odata') >= 0) {
           self.setupInterface('odata', config, router);
         }
-        if (config.serviceInterface.indexOf('rest') >= 0) {
+        if (config.interfaces.indexOf('rest') >= 0) {
           self.setupInterface('rest', config, router);
         }
       }
     } else {
-      self.setupInterface(config.serviceInterface, config, router);
+      self.setupInterface(config.interfaces, config, router);
     }
 
   };
