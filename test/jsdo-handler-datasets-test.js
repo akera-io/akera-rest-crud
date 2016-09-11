@@ -8,7 +8,8 @@ var Request = require('./request.js');
 var router = require('./router.js');
 var config = {
   jsdo : {
-    asDataset : true
+    asDataset : true,
+    sqlSafe : true
   }
 };
 var newCustomer = null;
@@ -132,6 +133,33 @@ describe('JSDO Handler - Crud (as datasets)', function() {
 
   });
 
+  it('should load sports.customer records', function(done) {
+    this.timeout(20000);
+
+    var req = new Request().reqBroker(broker).reqParams({
+      db : 'sports',
+      table : 'customer'
+    });
+
+    jsdo.doSelect(req, new Response(function(err, data) {
+      if (err)
+        done(new Error(err.message));
+      else {
+        try {
+          should(data).have.property('dscustomer');
+          should(data.dscustomer).have.property('customer');
+          var customer = data.dscustomer.customer;
+          should(customer).be.an.instanceOf(Array);
+          should(customer[0]).have.properties([ 'CustNum', 'Name', 'Country',
+            'City' ]);
+          done();
+        } catch (e) {
+          done(new Error(e.message));
+        }
+      }
+    }));
+  });
+  
   it('should load customer records', function(done) {
     this.timeout(20000);
 
@@ -475,4 +503,119 @@ describe('JSDO Handler - Crud (as datasets)', function() {
     }));
   });
 
+  
+  // sports hypens check
+  
+  it('should create sports.customer record', function(done) {
+    this.timeout(10000);
+
+    var name = 'Medu - ' + new Date().toString();
+    var req = new Request().reqBroker(broker).reqParams({
+      db : 'sports',
+      table : 'customer'
+    }).reqBody({
+      "dscustomer" : {
+        "prods:hasChanges" : true,
+        "customer" : [ {
+          "prods:rowState" : "created",
+          "prods:clientId" : "1472579267707-11",
+          "Name" : name,
+          "City" : "Cluj"
+        } ]
+      }
+    });
+
+    jsdo.doCreate(req, new Response(function(err, data) {
+      if (err)
+        done(new Error(err.message));
+      else {
+        try {
+          should(data.dscustomer.customer).be.an.instanceOf(Array);
+          data = data.dscustomer.customer[0];
+          should(data).be.an.instanceOf(Object);
+          should(data).have
+            .properties([ 'CustNum', 'Name', 'Country', 'City' ]);
+          (data.Name).should.be.exactly(name);
+          (data.City).should.be.exactly('Cluj');
+          (data.CustNum).should.be.above(1);
+          newCustomer = data.CustNum;
+          done();
+        } catch (err) {
+          done(err);
+        }
+      }
+    }));
+  });
+
+  it('should update sports.customer record', function(done) {
+    this.timeout(10000);
+
+    var addr = 'Cluj - ' + new Date().toString();
+
+    var req = new Request().reqBroker(broker).reqParams({
+      db : 'sports',
+      table : 'customer'
+    }).reqBody({
+      dscustomer : {
+        'prods:before' : {
+          customer : [ {
+            CustNum : newCustomer
+          } ]
+        },
+        customer : [ {
+          'prods:rowState': 'modified',
+          Address2 : addr,
+          Balance : 8080
+        } ]
+      }
+    });
+    jsdo.doUpdate(req, new Response(
+      function(err, data) {
+        if (err)
+          done(new Error(err.message));
+        else {
+          try {
+            should(data.dscustomer.customer).be.an.instanceOf(Array);
+            data = data.dscustomer.customer;
+
+            should(data[0]).have
+              .properties([ 'CustNum', 'Balance', 'Address2' ]);
+            (data[0].Address2).should.be.exactly(addr);
+            (data[0].Balance).should.be.exactly(8080);
+            done();
+          } catch (err) {
+            done(err);
+          }
+        }
+      }));
+  });
+
+  it('should delete sports.customer record', function(done) {
+    this.timeout(10000);
+
+    var req = new Request().reqBroker(broker).reqParams({
+      db : 'sports',
+      table : 'customer'
+    }).reqBody({
+      dscustomer : {
+        'prods:before' : {
+          customer : [ {
+            CustNum : newCustomer
+          } ]
+        }
+      }
+    });
+    jsdo.doDelete(req, new Response(function(err, data) {
+      if (err)
+        done(new Error(err.message));
+      else {
+        try {
+          (data).should.be.exactly(1);
+          done();
+        } catch (err) {
+          done(err);
+        }
+      }
+    }));
+  });
 });

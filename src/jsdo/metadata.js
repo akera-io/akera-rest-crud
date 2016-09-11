@@ -11,12 +11,14 @@ var jsonAblMap = {
   datetimetz : 'date'
 };
 
-function JSDOCatalog(akeraMetadata) {
+function JSDOCatalog(akeraMetadata, asDataset, sqlSafe) {
   var self = this;
 
   this.akeraMetadata = akeraMetadata;
+  this.asDataset = asDataset !== undefined ? asDataset : true;
+  this.sqlSafe = sqlSafe !== undefined ? sqlSafe : false;
 
-  this.getCatalog = function(dbName, tableName, asDataset, broker) {
+  this.getCatalog = function(dbName, tableName, broker) {
     return new rsvp.Promise(function(resolve, reject) {
 
       var root = getRootNode();
@@ -28,7 +30,7 @@ function JSDOCatalog(akeraMetadata) {
               function(dbName) {
                 try {
                   root.services.push(_getDatabaseService(dbName,
-                    structure[dbName].table, asDataset));
+                    structure[dbName].table, self.asDataset, self.sqlSafe));
                 } catch (err) {
                   reject(err);
                 }
@@ -39,8 +41,8 @@ function JSDOCatalog(akeraMetadata) {
         self.akeraMetadata.getTables(broker, dbName, true).then(
           function(tables) {
             try {
-              root.services
-                .push(_getDatabaseService(dbName, tables, asDataset));
+              root.services.push(_getDatabaseService(dbName, tables,
+                self.asDataset, self.sqlSafe));
               resolve(root);
             } catch (err) {
               reject(err);
@@ -52,8 +54,8 @@ function JSDOCatalog(akeraMetadata) {
             try {
               var tables = {};
               tables[tableName] = tableMeta;
-              root.services
-                .push(_getDatabaseService(dbName, tables, asDataset));
+              root.services.push(_getDatabaseService(dbName, tables,
+                self.asDataset, self.sqlSafe));
               resolve(root);
             } catch (err) {
               reject(err);
@@ -72,7 +74,7 @@ function getRootNode() {
   };
 }
 
-function _getDatabaseService(dbName, tables, asDataset) {
+function _getDatabaseService(dbName, tables, asDataset, sqlSafe) {
   var service = {
     name : dbName,
     address : '\/' + dbName,
@@ -83,20 +85,21 @@ function _getDatabaseService(dbName, tables, asDataset) {
   Object.keys(tables).forEach(
     function(tableName) {
       service.resources.push(_getTableResource(tableName, tables[tableName],
-        asDataset));
+        asDataset, sqlSafe));
     });
 
   return service;
 }
 
-function _getTableResource(tableName, tableMeta, asDataset) {
+function _getTableResource(tableName, tableMeta, asDataset, sqlSafe) {
   var paramName = asDataset ? 'ds' + tableName : tableName;
   var xType = asDataset ? 'DATASET' : 'TABLE';
+  var sqlName = sqlSafe ? tableMeta.sqlName || tableName : tableName;
 
   var resource = {
-    name : tableName,
+    name : sqlName,
     path : '\/' + tableName,
-    displayName : tableName,
+    displayName : sqlName,
     schema : {
       type : 'object',
       additionalProperties : false,
@@ -160,7 +163,6 @@ function _getTableResource(tableName, tableMeta, asDataset) {
 
   var tableSchema = {
     type : 'array',
-    primaryKey : tableMeta.pk,
     items : {
       additionalProperties : false,
       properties : {
@@ -174,6 +176,11 @@ function _getTableResource(tableName, tableMeta, asDataset) {
     }
   };
 
+  if (tableMeta.pk) {
+    tableSchema.primaryKey = sqlSafe ? tableMeta.sqlPk || tableMeta.pk
+      : tableMeta.pk;
+  }
+
   if (asDataset === true) {
     resource.schema.properties[paramName] = {
       type : 'object',
@@ -182,13 +189,17 @@ function _getTableResource(tableName, tableMeta, asDataset) {
 
       }
     };
-    resource.schema.properties[paramName].properties[tableName] = tableSchema;
+    resource.schema.properties[paramName].properties[sqlName] = tableSchema;
   } else {
-    resource.schema.properties[tableName] = tableSchema;
+    resource.schema.properties[sqlName] = tableSchema;
   }
 
   Object.keys(tableMeta.fields).forEach(function(fieldName) {
     var field = tableMeta.fields[fieldName];
+
+    if (sqlSafe)
+      fieldName = field.sqlName || fieldName;
+
     var prop = {
       type : field.extent > 1 ? 'array' : jsonAblMap[field.type],
       title : field.label,

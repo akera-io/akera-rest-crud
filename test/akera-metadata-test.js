@@ -60,7 +60,7 @@ describe('Akera Metadata', function() {
       }, done);
 
   });
-
+  
   it('should fail to load database with invalid broker', function(done) {
     this.timeout(10000);
 

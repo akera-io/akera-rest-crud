@@ -3,7 +3,7 @@ var AkeraHandler = require('../src/akera/handler.js');
 var akera = new AkeraHandler();
 var akeraMeta = akera.getMetaData();
 var JSDOMetadata = require('../src/jsdo/metadata.js');
-var jsdoMeta = new JSDOMetadata(akeraMeta);
+var jsdoMeta = new JSDOMetadata(akeraMeta, false, true);
 
 var broker = {
   alias : 'sports',
@@ -22,7 +22,7 @@ describe('JSDO Metadata (as tables)', function() {
   it('should fail to load all services with invalid broker', function(done) {
     this.timeout(10000);
 
-    jsdoMeta.getCatalog(null, null, false, badBroker).then(function(info) {
+    jsdoMeta.getCatalog(null, null, badBroker).then(function(info) {
       done(new Error('Should have failed but returned: ' + info));
     }, function(err) {
       done();
@@ -33,7 +33,7 @@ describe('JSDO Metadata (as tables)', function() {
   it('should load all database services', function(done) {
     this.timeout(10000);
 
-    jsdoMeta.getCatalog(null, null, false, broker).then(
+    jsdoMeta.getCatalog(null, null, broker).then(
       function(dbs) {
         try {
           should(dbs).be.an.instanceOf(Object);
@@ -67,7 +67,7 @@ describe('JSDO Metadata (as tables)', function() {
   {
     this.timeout(10000);
 
-    jsdoMeta.getCatalog('sports2000', null, false, badBroker).then(
+    jsdoMeta.getCatalog('sports2000', null, badBroker).then(
       function(info) {
         done(new Error('Should have failed but returned: ' + info));
       }, function(err) {
@@ -79,7 +79,7 @@ describe('JSDO Metadata (as tables)', function() {
   it('should load sports2000 service', function(done) {
     this.timeout(10000);
 
-    jsdoMeta.getCatalog('sports2000', null, false, broker).then(
+    jsdoMeta.getCatalog('sports2000', null, broker).then(
       function(dbs) {
         try {
           should(dbs).be.an.instanceOf(Object);
@@ -115,7 +115,7 @@ describe('JSDO Metadata (as tables)', function() {
   {
     this.timeout(10000);
 
-    jsdoMeta.getCatalog('sports2000', 'customer', true, badBroker).then(
+    jsdoMeta.getCatalog('sports2000', 'customer', badBroker).then(
       function(info) {
         done(new Error('Should have failed but returned: ' + info));
       }, function(err) {
@@ -127,7 +127,7 @@ describe('JSDO Metadata (as tables)', function() {
   it('should load only customer service', function(done) {
     this.timeout(10000);
 
-    jsdoMeta.getCatalog('sports2000', 'customer', false, broker).then(
+    jsdoMeta.getCatalog('sports2000', 'customer', broker).then(
       function(dbs) {
         try {
           should(dbs).be.an.instanceOf(Object);

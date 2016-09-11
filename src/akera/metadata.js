@@ -213,6 +213,7 @@ AkeraMetaData.prototype.getTable = function(broker, db, table) {
         dbInfo = brokerInfo.db[db];
       }
 
+      info.sqlName = self.getSqlSafeName(table);
       dbInfo.table = dbInfo.table || {};
       dbInfo.table[table] = info;
 
@@ -293,6 +294,8 @@ AkeraMetaData.prototype.loadDatabase = function(dbMeta, fullLoad) {
 };
 
 AkeraMetaData.prototype.loadTable = function(tblMeta) {
+  var self = this;
+
   return new rsvp.Promise(function(resolve, reject) {
     try {
       var tableInfo = {};
@@ -300,10 +303,29 @@ AkeraMetaData.prototype.loadTable = function(tblMeta) {
       tblMeta.getAllFields().then(function(fields) {
         tableInfo.fields = {};
 
+        var needFieldMap = false;
+
         fields.forEach(function(field) {
+          field.sqlName = self.getSqlSafeName(field.name);
+          tableInfo.sqlMap = tableInfo.sqlMap || [];
+
+          if (field.name !== field.sqlName) {
+            needFieldMap = true;
+
+            tableInfo.sqlMap.push({
+              name : field.name,
+              alias : field.sqlName
+            });
+          } else {
+            tableInfo.sqlMap.push(field.name);
+          }
+
           tableInfo.fields[field.name] = field;
           delete field.name;
         });
+
+        if (!needFieldMap)
+          delete tableInfo.sqlMap;
 
         // next get indexes
         return tblMeta.getAllIndexes();
@@ -318,12 +340,21 @@ AkeraMetaData.prototype.loadTable = function(tblMeta) {
         // last step get pk info
         return tblMeta.getPk();
       }).then(function(pk) {
-        if (pk && pk.fields)
-          tableInfo.pk = pk.fields.sort(function(a, b) {
+        if (pk && pk.fields) {
+          tableInfo.pk = pk.fields.filter(function(field) {
+            return field.name && field.name.trim().length > 0;
+          }).sort(function(a, b) {
             return a.fld_pos - b.fld_pos;
           }).map(function(fld) {
             return fld.name;
           });
+
+          if (tableInfo.sqlMap)
+            tableInfo.sqlPk = tableInfo.pk.map(function(field) {
+              return tableInfo.fields[field].sqlName;
+            });
+        }
+
         resolve(tableInfo);
       })['catch'](reject);
     } catch (err) {
@@ -331,5 +362,23 @@ AkeraMetaData.prototype.loadTable = function(tblMeta) {
     }
   });
 };
+
+AkeraMetaData.prototype.getSqlSafeName = function(fieldName) {
+  if (typeof fieldName === 'string') {
+
+    var pos = -1;
+
+    while ((pos = fieldName.indexOf('-')) !== -1) {
+      if (pos === fieldName.length - 1)
+        fieldName = fieldName.substr(0, pos);
+      else
+        fieldName = fieldName.substr(0, pos)
+          + fieldName.substr(pos + 1, 1).toUpperCase()
+          + fieldName.substr(pos + 2);
+    }
+  }
+
+  return fieldName;
+}
 
 module.exports = AkeraMetaData;

@@ -45,8 +45,8 @@ describe('Akera Handler - Metadata', function() {
         done(new Error(err.message));
       else {
         try {
-          (data.length).should.be.exactly(1);
-          (data[0]).should.be.exactly('sports2000');
+          (data.length).should.be.above(1);
+          (data[0]).should.startWith('sports');
 
           done();
         } catch (err) {

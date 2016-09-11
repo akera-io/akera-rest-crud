@@ -7,12 +7,18 @@ function JSDOHandler(akera) {
   var self = this;
 
   this.akera = akera;
-  this.crudHandler = akera.getAkeraHandler().getDataAccess();
-  this.akeraMetadata = akera.getAkeraHandler().getMetaData();
-  this.metadata = new JSDOCatalog(this.akeraMetadata);
 
   this.init = function(config, router) {
-    self.asDataset = config.jsdo && config.jsdo.asDataset === false ? false : true;
+    self.asDataset = config.jsdo && config.jsdo.asDataset === false ? false
+      : true;
+    self.sqlSafe = (config.jsdo && config.jsdo.sqlSafe) || config.sqlSafe
+      || false;
+
+    this.crudHandler = akera.getAkeraHandler().getDataAccess();
+    this.akeraMetadata = akera.getAkeraHandler().getMetaData();
+    this.metadata = new JSDOCatalog(this.akeraMetadata, self.asDataset,
+      self.sqlSafe);
+
     router.get(config.route + 'jsdo/metadata', self.getCatalog);
     router.get(config.route + 'jsdo/metadata/:db', self.getCatalog);
     router.get(config.route + 'jsdo/metadata/:db/:table', self.getCatalog);
@@ -27,12 +33,12 @@ function JSDOHandler(akera) {
     var tableName = req.params.table;
     var dbName = req.params.db;
 
-    self.metadata.getCatalog(dbName, tableName, self.asDataset === true,
-      req.broker).then(function(catalog) {
-      res.status(200).json(catalog);
-    }, function(err) {
-      self.akera.error(err, res);
-    });
+    self.metadata.getCatalog(dbName, tableName, req.broker).then(
+      function(catalog) {
+        res.status(200).json(catalog);
+      }, function(err) {
+        self.akera.error(err, res);
+      });
   };
 
   this.doSelect = function(req, res) {
@@ -100,21 +106,17 @@ function JSDOHandler(akera) {
       }
     }
 
-    if (!self.asDataset) {
-      _getPkFromQueryString(req).then(function(pkMap) {
-        filter.pk = pkMap;
-        return self.crudHandler.read(req.broker, tableName, filter);
-      }).then(function(rows) {
-        _sendReadResponse(rows, req, res);
-      })['catch'](function(err) {
-        self.akera.error(err, res);
-      });
+    if (self.sqlSafe) {
+      _getTableInfo(req.broker, req.params.db, req.params.table).then(
+        function(tableInfo) {
+          if (tableInfo.sqlMap && tableInfo.sqlMap.length > 0)
+            filter.select = tableInfo.sqlMap;
+          _doSelect(req, res, tableName, filter);
+        }, function(err) {
+          self.akera.error(err, res);
+        });
     } else {
-      self.crudHandler.read(req.broker, tableName, filter).then(function(rows) {
-        _sendReadResponse(rows, req, res);
-      })['catch'](function(err) {
-        self.akera.error(err, res);
-      });
+      _doSelect(req, res, tableName, filter);
     }
   };
 
@@ -130,12 +132,15 @@ function JSDOHandler(akera) {
       } catch (e) {
         return self.akera.error(e, res);
       }
-      self.crudHandler.create(req.broker, tableName, newObject).then(
-        function(row) {
-          _sendReadResponse(row, req, res);
-        }, function(err) {
-          self.akera.error(err, res);
-        });
+
+      if (self.sqlSafe) {
+        _getTableInfo(req.broker, req.params.db, req.params.table).then(
+          function(tableInfo) {
+            _doCreate(req, res, tableName, newObject, tableInfo.sqlMap);
+          });
+      } else {
+        _doCreate(req, res, tableName, newObject);
+      }
     } else {
       self.akera.error(new Error('No data provided'), res);
     }
@@ -150,7 +155,8 @@ function JSDOHandler(akera) {
       pkFn(req).then(
         function(pkMap) {
           return self.crudHandler.update(req.broker, tableName, pkMap,
-            self.asDataset ? _getDatasetRow(req, 'modified') : req.body);
+            self.asDataset ? _getDatasetRow(req, 'modified') : req.body,
+            req.__tableInfo && req.__tableInfo.sqlMap);
         }).then(function(rows) {
         _sendReadResponse(rows, req, res);
       })['catch'](function(err) {
@@ -163,9 +169,11 @@ function JSDOHandler(akera) {
     var pkFn = self.asDataset ? _getPkFromBeforeImage : _getPkFromQueryString;
     var tableName = req.params.db + '.' + req.params.table;
 
-    pkFn(req).then(function(pkMap) {
-      return self.crudHandler.destroy(req.broker, tableName, pkMap);
-    }).then(function(result) {
+    pkFn(req).then(
+      function(pkMap) {
+        return self.crudHandler.destroy(req.broker, tableName, pkMap,
+          req.__tableInfo && req.__tableInfo.sqlMap);
+      }).then(function(result) {
       res.status(200).json(result);
     })['catch'](function(err) {
       self.akera.error(err, res);
@@ -213,7 +221,8 @@ function JSDOHandler(akera) {
 
     if (tts instanceof Array) {
       var rows = tts.filter(function(row) {
-        return row['prods:rowState'] === undefined || row['prods:rowState'] === state;
+        return row['prods:rowState'] === undefined
+          || row['prods:rowState'] === state;
       });
 
       if (rows.length !== 1) {
@@ -250,24 +259,29 @@ function JSDOHandler(akera) {
       }
       var pk = pkString.split('/');
 
-      _getPrimaryKey(req.broker, req.params.db, req.params.table).then(
-        function(primaryKey) {
-          if (pk.length !== primaryKey.length) {
+      _getTableInfo(req.broker, req.params.db, req.params.table).then(
+        function(tableInfo) {
+          var tablePk = self.sqlSafe ? tableInfo.sqlPk || tableInfo.pk
+            : tableInfo.pk;
+
+          if (pk.length !== tablePk.length) {
             reject(new Error('Invalid primary key values'));
           }
           var pkMap = {};
           for ( var i in pk) {
-            pkMap[primaryKey[i]] = pk[i];
+            pkMap[tablePk[i]] = pk[i];
           }
+
+          req.__tableInfo = tableInfo;
           resolve(pkMap);
         }, reject);
     });
   }
 
-  function _getPrimaryKey(broker, db, table) {
+  function _getTableInfo(broker, db, table) {
     return new rsvp.Promise(function(resolve, reject) {
       self.akeraMetadata.getTable(broker, db, table).then(function(meta) {
-        resolve(meta.pk);
+        resolve(meta);
       }, reject);
     });
   }
@@ -287,12 +301,17 @@ function JSDOHandler(akera) {
         before = req.body[0];
       }
 
-      _getPrimaryKey(req.broker, req.params.db, tableName).then(
-        function(primaryKey) {
+      _getTableInfo(req.broker, req.params.db, tableName).then(
+        function(tableInfo) {
+          var pk = self.sqlSafe ? tableInfo.sqlPk || tableInfo.pk
+            : tableInfo.pk;
           var pkMap = {};
-          for ( var i in primaryKey) {
-            pkMap[primaryKey[i]] = before[primaryKey[i]];
+
+          for ( var i in pk) {
+            pkMap[pk[i]] = before[pk[i]];
           }
+          req.__tableInfo = tableInfo;
+
           resolve(pkMap);
         }, reject);
     });
@@ -312,6 +331,34 @@ function JSDOHandler(akera) {
     }
 
     res.status(200).json(result);
+  }
+
+  function _doSelect(req, res, tableName, filter) {
+    if (!self.asDataset) {
+      _getPkFromQueryString(req).then(function(pkMap) {
+        filter.pk = pkMap;
+        return self.crudHandler.read(req.broker, tableName, filter);
+      }).then(function(rows) {
+        _sendReadResponse(rows, req, res);
+      })['catch'](function(err) {
+        self.akera.error(err, res);
+      });
+    } else {
+      self.crudHandler.read(req.broker, tableName, filter).then(function(rows) {
+        _sendReadResponse(rows, req, res);
+      })['catch'](function(err) {
+        self.akera.error(err, res);
+      });
+    }
+  }
+
+  function _doCreate(req, res, tableName, newObject, sqlMap) {
+    self.crudHandler.create(req.broker, tableName, newObject, sqlMap).then(
+      function(row) {
+        _sendReadResponse(row, req, res);
+      }, function(err) {
+        self.akera.error(err, res);
+      });
   }
 
 }

@@ -47,7 +47,61 @@ var getWhereFilter = function(table, filter) {
   return null;
 };
 
-AkeraCrud.prototype.create = function(broker, table, data) {
+var transformData = function(data, sqlMap, back) {
+  if (data && sqlMap && sqlMap.length) {
+    if (data instanceof Array) {
+      data.forEach(function(row) {
+        transformData(row, sqlMap, back);
+      });
+    } else {
+      sqlMap.forEach(function(field) {
+        if (field.alias !== undefined) {
+          if (back === true) {
+            if (data[field.name] !== undefined) {
+              data[field.alias] = data[field.name];
+              delete data[field.name];
+            }
+          } else {
+            if (data[field.alias] !== undefined) {
+              data[field.name] = data[field.alias];
+              delete data[field.alias];
+            }
+          }
+        }
+      });
+    }
+  }
+
+  return data;
+};
+
+var transformWhere = function(where, table, sqlMap) {
+  // rowid value
+  if (typeof where === 'string') {
+    where = f.rowid(table, where);
+  } else {
+    where = transformData(where, sqlMap);
+
+    switch (Object.keys(where).length) {
+      case 0:
+        return null;
+      case 1:
+        return where;
+      default:
+        var filters = [];
+
+        for ( var key in where) {
+          filters.push(f.eq(key, where[key]));
+        }
+
+        where = f.and(filters);
+    }
+  }
+
+  return where;
+};
+
+AkeraCrud.prototype.create = function(broker, table, data, sqlMap) {
   var self = this;
 
   return new rsvp.Promise(function(resolve, reject) {
@@ -55,9 +109,10 @@ AkeraCrud.prototype.create = function(broker, table, data) {
 
     akera.connect(broker).then(function(conn) {
       _conn = conn;
-      return conn.query.insert(table).set(data).fetch();
+
+      return conn.query.insert(table).set(transformData(data, sqlMap)).fetch();
     }).then(function(result) {
-      self.disconnect(_conn, resolve, result);
+      self.disconnect(_conn, resolve, transformData(result, sqlMap, true));
     })['catch'](function(err) {
       self.disconnect(_conn, reject, err);
     });
@@ -77,6 +132,10 @@ AkeraCrud.prototype.read = function(broker, table, filter) {
 
       if (typeof filter === 'object') {
 
+        filter.offset = filter.offset || filter.start || filter.skip;
+        filter.top = filter.top || filter.limit;
+        filter.fields = filter.fields || filter.select;
+
         var where = getWhereFilter(table, filter);
 
         if (where)
@@ -84,10 +143,6 @@ AkeraCrud.prototype.read = function(broker, table, filter) {
 
         if (filter.sort)
           addSort(qry, filter.sort);
-
-        filter.offset = filter.offset || filter.start || filter.skip;
-        filter.top = filter.top || filter.limit;
-        filter.fields = filter.fields || filter.select;
 
         if (filter.offset)
           qry.offset(filter.offset);
@@ -109,77 +164,48 @@ AkeraCrud.prototype.read = function(broker, table, filter) {
   });
 };
 
-AkeraCrud.prototype.update = function(broker, table, where, data) {
+AkeraCrud.prototype.update = function(broker, table, where, data, sqlMap) {
   var self = this;
-
-  where = where || {};
 
   return new rsvp.Promise(function(resolve, reject) {
     var _conn = null;
-    var keys = typeof where === 'object' ? Object.keys(where) : where
-      .toString();
 
-    if (typeof where !== 'string' && keys.length === 0)
+    where = transformWhere(where, table, sqlMap);
+
+    if (!where)
       return reject(new Error('Primary key value required for update.'));
 
-    akera.connect(broker).then(function(conn) {
-      _conn = conn;
+    akera.connect(broker).then(
+      function(conn) {
+        _conn = conn;
 
-      // rowid value
-      if (typeof where === 'string') {
-        where = f.rowid(table, where);
-      } else {
-        if (keys.length > 1) {
-          var filters = [];
-
-          for ( var key in where) {
-            filters.push(f.eq(key, where[key]));
-          }
-
-          where = f.and(filters);
-        }
-      }
-
-      return conn.query.update(table).where(where).set(data).fetch();
-    }).then(function(result) {
-      if (result.length === 0)
+        return conn.query.update(table).where(where).set(
+          transformData(data, sqlMap)).fetch();
+      }).then(function(result) {
+      if (result.length === 0) {
         self.disconnect(_conn, reject, new Error('Record not found.'));
-      else
-        self.disconnect(_conn, resolve, result);
+      } else {
+        self.disconnect(_conn, resolve, transformData(result, sqlMap, true));
+      }
     })['catch'](function(err) {
       self.disconnect(_conn, reject, err);
     });
   });
 };
 
-AkeraCrud.prototype.destroy = function(broker, table, where) {
+AkeraCrud.prototype.destroy = function(broker, table, where, sqlMap) {
   var self = this;
 
   return new rsvp.Promise(function(resolve, reject) {
     var _conn = null;
-    var keys = typeof where === 'object' ? Object.keys(where) : where
-      .toString();
 
-    if (typeof where !== 'string' && keys.length === 0)
+    where = transformWhere(where, table, sqlMap);
+
+    if (!where)
       return reject(new Error('Primary key value required for delete.'));
 
     akera.connect(broker).then(function(conn) {
       _conn = conn;
-
-      // rowid value
-      if (typeof where === 'string') {
-        where = f.rowid(table, where);
-      } else {
-        if (keys.length > 1) {
-          var filters = [];
-
-          for ( var key in where) {
-            filters.push(f.eq(key, where[key]));
-          }
-
-          where = f.and(filters);
-        }
-      }
 
       return conn.query.destroy(table).where(where).go();
     }).then(function(result) {
