@@ -3,9 +3,9 @@ var AkeraCrud = require('./crud.js');
 
 function AkeraHandler(akeraRest) {
   var self = this;
-  
+
   this.akeraRest = akeraRest;
-  
+
   this.getDataAccess = function() {
     if (!this.dataAccess)
       this.dataAccess = new AkeraCrud();
@@ -25,7 +25,8 @@ function AkeraHandler(akeraRest) {
     router.get(config.route + 'metadata', self.getDatabases);
     router.get(config.route + 'metadata/:db', self.getTables);
     router.get(config.route + 'metadata/:db/:table', self.getFields);
-    router.get(config.route + 'metadata/:db/:table/index(es)?', self.getIndexes);
+    router
+      .get(config.route + 'metadata/:db/:table/index(es)?', self.getIndexes);
 
     router.get(config.route + ':db/:table', self.doSelect);
     router.get(config.route + ':db/:table/count', self.doCount);
@@ -33,14 +34,15 @@ function AkeraHandler(akeraRest) {
     router.post(config.route + ':db/:table', self.doCreate);
     router.put(config.route + ':db/:table/rowid/:id', self.doUpdateByRowid);
     router.put(config.route + ':db/:table/*', self.doUpdate);
-    router['delete'](config.route + ':db/:table/rowid/:id', self.doDeleteByRowid);
+    router['delete'](config.route + ':db/:table/rowid/:id',
+      self.doDeleteByRowid);
     router['delete'](config.route + ':db/:table/*', self.doDelete);
 
   };
 
   this.getDatabases = function(req, res) {
     self.getMetaData().getDatabases(req.broker).then(function(info) {
-      res.status(200).send(Object.keys(info));
+      res.status(200).json(Object.keys(info));
     }, function(err) {
       self.akeraRest.error(err, res);
     });
@@ -50,7 +52,7 @@ function AkeraHandler(akeraRest) {
     var db = isNaN(req.params.db) ? req.params.db : parseInt(req.params.db);
 
     self.getMetaData().getTables(req.broker, db).then(function(info) {
-      res.status(200).send(Object.keys(info));
+      res.status(200).json(Object.keys(info));
     }, function(err) {
       self.akeraRest.error(err, res);
     });
@@ -62,7 +64,7 @@ function AkeraHandler(akeraRest) {
       : parseInt(req.params.table);
 
     self.getMetaData().getTable(req.broker, db, table).then(function(info) {
-      res.status(200).send(info.fields);
+      res.status(200).json(info.fields);
     }, function(err) {
       self.akeraRest.error(err, res);
     });
@@ -74,7 +76,7 @@ function AkeraHandler(akeraRest) {
       : parseInt(req.params.table);
 
     self.getMetaData().getTable(req.broker, db, table).then(function(info) {
-      res.status(200).send(info.indexes);
+      res.status(200).json(info.indexes);
     }, function(err) {
       self.akeraRest.error(err, res);
     });
@@ -85,7 +87,7 @@ function AkeraHandler(akeraRest) {
     var filter = (req.query && req.query.filter) || {};
 
     self.getDataAccess().read(req.broker, table, filter).then(function(info) {
-      res.status(200).send(info);
+      res.status(200).json(info);
     }, function(err) {
       self.akeraRest.error(err, res);
     });
@@ -99,7 +101,9 @@ function AkeraHandler(akeraRest) {
     filter.count = true;
 
     self.getDataAccess().read(req.broker, table, filter).then(function(info) {
-      res.status(200).send(info);
+      res.status(200).json({
+        count : info
+      });
     }, function(err) {
       self.akeraRest.error(err, res);
     });
@@ -126,7 +130,7 @@ function AkeraHandler(akeraRest) {
 
         return self.getDataAccess().read(req.broker, tableName, filter);
       }).then(function(info) {
-        res.status(200).send(info);
+        res.status(200).json(info);
       })['catch'](function(err) {
       self.akeraRest.error(err, res);
     });
@@ -135,11 +139,12 @@ function AkeraHandler(akeraRest) {
   this.doCreate = function(req, res) {
     var table = req.params.db + '.' + req.params.table;
 
-    self.getDataAccess().create(req.broker, table, req.body).then(function(info) {
-      res.status(200).send(info);
-    }, function(err) {
-      self.akeraRest.error(err, res);
-    });
+    self.getDataAccess().create(req.broker, table, req.body).then(
+      function(info) {
+        res.status(200).json(info);
+      }, function(err) {
+        self.akeraRest.error(err, res);
+      });
   };
 
   this.doUpdate = function(req, res) {
@@ -162,7 +167,7 @@ function AkeraHandler(akeraRest) {
           return self.getDataAccess().update(req.broker, tableName, pkFilter,
             req.body);
         }).then(function(info) {
-        res.status(200).send(info);
+        res.status(200).json(info);
       })['catch'](function(err) {
       self.akeraRest.error(err, res);
     });
@@ -171,12 +176,12 @@ function AkeraHandler(akeraRest) {
   this.doUpdateByRowid = function(req, res) {
     var table = req.params.db + '.' + req.params.table;
 
-    return self.getDataAccess()
-      .update(req.broker, table, req.params.id, req.body).then(function(info) {
-        res.status(200).send(info);
-      }, function(err) {
-        self.akeraRest.error(err, res);
-      });
+    return self.getDataAccess().update(req.broker, table, req.params.id,
+      req.body).then(function(info) {
+      res.status(200).json(info);
+    }, function(err) {
+      self.akeraRest.error(err, res);
+    });
   };
 
   this.doDelete = function(req, res) {
@@ -197,7 +202,9 @@ function AkeraHandler(akeraRest) {
 
         return self.getDataAccess().destroy(req.broker, tableName, pkFilter);
       }).then(function(info) {
-        res.status(200).send(info);
+        res.status(200).json({
+          updated : info
+        });
       })['catch'](function(err) {
       self.akeraRest.error(err, res);
     });
@@ -208,12 +215,14 @@ function AkeraHandler(akeraRest) {
 
     return self.getDataAccess().destroy(req.broker, table, req.params.id).then(
       function(info) {
-        res.status(200).send(info);
+        res.status(200).json({
+          updated : info
+        });
       }, function(err) {
         self.akeraRest.error(err, res);
       });
   };
-  
+
 }
 
 module.exports = AkeraHandler;
