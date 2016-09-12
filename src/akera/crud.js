@@ -91,7 +91,7 @@ var transformWhere = function(where, table, sqlMap) {
         var filters = [];
 
         for ( var key in where) {
-          filters.push(f.eq(key, where[key]));
+          filters.push(f.eq(key, where[key] !== undefined ? where[key] : null));
         }
 
         where = f.and(filters);

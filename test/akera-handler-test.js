@@ -370,6 +370,24 @@ describe('Akera Handler - Crud', function() {
     }));
   });
 
+  it('should fail to read customer record if invalid pk values', function(done)
+  {
+    this.timeout(10000);
+
+    akera.doSelectRecord({
+      broker : broker,
+      params : {
+        db : 'sports2000',
+        table : 'customer'
+      }
+    }, new Response(function(err, data) {
+      if (err)
+        done();
+      else
+        done(new Error('Read by pk whould have failed if invalid values.'))
+    }));
+  });
+
   it('should read orderline record with pk', function(done) {
     this.timeout(10000);
 
@@ -413,7 +431,7 @@ describe('Akera Handler - Crud', function() {
         done(new Error(err.message));
       else {
         try {
-          (data).should.be.above(1);
+          (data.count).should.be.above(1);
           done();
         } catch (err) {
           done(err);
@@ -446,7 +464,7 @@ describe('Akera Handler - Crud', function() {
         done(new Error(err.message));
       else {
         try {
-          (data).should.be.exactly(4);
+          (data.count).should.be.exactly(4);
           done();
         } catch (err) {
           done(err);
@@ -512,6 +530,32 @@ describe('Akera Handler - Crud', function() {
         }
 
       }
+    }));
+  });
+
+  it('should fail to update customer record if not pk values set', function(
+    done)
+  {
+    this.timeout(10000);
+
+    var addr = 'Cluj - ' + new Date().toString();
+
+    akera.doUpdate({
+      broker : broker,
+      params : {
+        db : 'sports2000',
+        table : 'customer'
+      // cust num, pk value
+      },
+      body : {
+        Address2 : addr,
+        Balance : 8080
+      }
+    }, new Response(function(err, data) {
+      if (err)
+        done();
+      else
+        done(new Error('Update should have failed with invalid pk values.'))
     }));
   });
 
@@ -604,7 +648,7 @@ describe('Akera Handler - Crud', function() {
         done(new Error(err.message));
       else {
         try {
-          (data).should.be.exactly(1);
+          (data.updated).should.be.exactly(1);
           done();
         } catch (err) {
           done(err);
@@ -613,6 +657,25 @@ describe('Akera Handler - Crud', function() {
       }
     }));
   });
+
+  it('should fail to delete customer record if not all pk values set',
+    function(done) {
+      this.timeout(10000);
+
+      akera.doDelete({
+        broker : broker,
+        params : {
+          db : 'sports2000',
+          table : 'customer'
+        // cust num, pk value
+        }
+      }, new Response(function(err, data) {
+        if (err)
+          done();
+        else
+          done(new Error('Delete should have failed for missing pk values'));
+      }));
+    });
 
   it('should fail to delete customer record by rowid', function(done) {
     this.timeout(10000);

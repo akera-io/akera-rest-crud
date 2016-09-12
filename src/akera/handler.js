@@ -116,18 +116,7 @@ function AkeraHandler(akeraRest) {
 
     self.getMetaData().getTable(req.broker, req.params.db, req.params.table)
       .then(function(table) {
-        var pkFilter = {};
-
-        try {
-          for ( var key in table.pk) {
-            pkFilter[table.pk[key]] = pkValues[key];
-          }
-          filter.pk = pkFilter;
-
-        } catch (err) {
-          throw new Error('Invalid primary key data.');
-        }
-
+        filter.pk = self.getPkWhere(table, pkValues);
         return self.getDataAccess().read(req.broker, tableName, filter);
       }).then(function(info) {
         res.status(200).json(info);
@@ -154,18 +143,8 @@ function AkeraHandler(akeraRest) {
     self.getMetaData().getTable(req.broker, req.params.db, req.params.table)
       .then(
         function(table) {
-          var pkFilter = {};
-
-          try {
-            for ( var key in table.pk) {
-              pkFilter[table.pk[key]] = pkValues[key];
-            }
-          } catch (err) {
-            throw new Error('Invalid primary key data.');
-          }
-
-          return self.getDataAccess().update(req.broker, tableName, pkFilter,
-            req.body);
+          return self.getDataAccess().update(req.broker, tableName,
+            self.getPkWhere(table, pkValues), req.body);
         }).then(function(info) {
         res.status(200).json(info);
       })['catch'](function(err) {
@@ -189,19 +168,11 @@ function AkeraHandler(akeraRest) {
     var pkValues = req.params[0] ? req.params[0].toString().split('/') : [];
 
     self.getMetaData().getTable(req.broker, req.params.db, req.params.table)
-      .then(function(table) {
-        var pkFilter = {};
-
-        try {
-          for ( var key in table.pk) {
-            pkFilter[table.pk[key]] = pkValues[key];
-          }
-        } catch (err) {
-          throw new Error('Invalid primary key data.');
-        }
-
-        return self.getDataAccess().destroy(req.broker, tableName, pkFilter);
-      }).then(function(info) {
+      .then(
+        function(table) {
+          return self.getDataAccess().destroy(req.broker, tableName,
+            self.getPkWhere(table, pkValues));
+        }).then(function(info) {
         res.status(200).json({
           updated : info
         });
@@ -221,6 +192,26 @@ function AkeraHandler(akeraRest) {
       }, function(err) {
         self.akeraRest.error(err, res);
       });
+  };
+
+  this.getPkWhere = function(table, pkValues) {
+    if (!table.pk || table.pk.length === 0)
+      throw new Error('Table does not have a primary key.');
+
+    if (table.pk.length !== pkValues.length)
+      throw new Error('Invalid primary key values.');
+
+    var pkFilter = {};
+
+    try {
+      for ( var key in table.pk) {
+        pkFilter[table.pk[key]] = pkValues[key];
+      }
+    } catch (err) {
+      throw new Error('Invalid primary key data.');
+    }
+
+    return pkFilter;
   };
 
 }
