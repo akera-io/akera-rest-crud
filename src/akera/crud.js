@@ -133,10 +133,9 @@ AkeraCrud.prototype.read = function(broker, table, filter) {
       if (typeof filter === 'string') {
         try {
           filter = JSON.parse(filter);
-        } catch (err) {
-        }
+        } catch (err) {}
       }
-      
+
       if (typeof filter === 'object') {
 
         filter.offset = filter.offset || filter.start || filter.skip;
@@ -145,21 +144,24 @@ AkeraCrud.prototype.read = function(broker, table, filter) {
 
         var where = getWhereFilter(table, filter);
 
-        if (where)
+        if (where) {
+          if (filter.fields)
+            where = transformWhere(where, table, filter.fields);
           qry.where(where);
+        }
 
         if (filter.count === true)
           return qry.count();
-        
+
         if (filter.sort)
           addSort(qry, filter.sort);
 
         if (filter.offset)
           qry.offset(filter.offset);
-        
+
         if (filter.top)
           qry.limit(filter.top);
-        
+
         if (filter.fields)
           qry.fields(filter.fields);
 

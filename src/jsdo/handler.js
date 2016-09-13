@@ -235,7 +235,7 @@ function JSDOHandler(akera) {
       var data = rows[0];
 
       Object.keys(data).forEach(function(field) {
-        if (field.startsWith('prods:'))
+        if (field.indexOf('prods:') === 0)
           delete data[field];
       });
 
