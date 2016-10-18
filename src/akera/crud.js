@@ -54,6 +54,16 @@ var transformData = function(data, sqlMap, back) {
         transformData(row, sqlMap, back);
       });
     } else {
+      if (Object.keys(data).length === 1) {
+        // and/or filter
+        for ( var group in data) {
+          if (group === f.operator.and || group === f.operator.or) {
+            transformData(data[group], sqlMap, back);
+            return data;
+          }
+        }
+      }
+
       sqlMap.forEach(function(field) {
         if (field.alias !== undefined) {
           if (back === true) {
