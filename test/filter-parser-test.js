@@ -39,6 +39,8 @@ describe(
         should(FilterParser.convert("State=234.45")).have.property('State',
           234.45);
         should(FilterParser.convert("State=25")).have.property('State', 25);
+        
+        should(FilterParser.convert("isoIdt=1000 AND punchNum=2")).have.property('and');
       });
 
     it(

@@ -72,6 +72,11 @@ var convertRollbaseCriteria = function(flt) {
 
 var parseGroup = function(filter, tree) {
 
+  filter = typeof filter === 'string' ? filter.trim() : null;
+  
+  if (!filter)
+    return null;
+  
   var hasPhar = filter.charAt(0) === '(';
   var group = {
     tokens : []
@@ -167,6 +172,8 @@ var parseValue = function(filter, node) {
   var value = null;
   var idx = 1;
 
+  filter = filter.trim();
+  
   if (filter.charAt(0) === '\'') {
     while (idx < filter.length) {
       if (filter.charAt(idx) === '\'') {
@@ -188,13 +195,16 @@ var parseValue = function(filter, node) {
 
   } else {
     idx = filter.indexOf(' ');
+    
+    if (idx === -1)
+      idx = filter.indexOf(')');
 
     if (idx === -1) {
       value = filter;
       filter = null;
     } else {
       value = filter.substr(0, idx);
-      filter = filter.substr(idx + 1).trim();
+      filter = filter.substr(idx).trim();
     }
 
     if (value === '?')
