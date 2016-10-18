@@ -3,7 +3,7 @@ var rsvp = require('rsvp');
 var jsonAblMap = {
   character : 'string',
   blob : 'string',
-  integer : 'number',
+  integer : 'integer',
   decimal : 'number',
   logical : 'boolean',
   date : 'date',
