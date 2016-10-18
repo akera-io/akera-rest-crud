@@ -191,15 +191,18 @@ function JSDOHandler(akera) {
       filter.where = where;
     }
 
-    self.crudHandler.read(req.broker, tableName, filter).then(function(count) {
-      res.status(200).json({
-        response : {
-          numRecs : count
-        }
-      });
-    }, function(err) {
-      self.akera.error(err, res);
-    });
+    if (self.sqlSafe && filter.where) {
+      _getTableInfo(req.broker, req.params.db, req.params.table).then(
+        function(tableInfo) {
+          if (tableInfo.sqlMap && tableInfo.sqlMap.length > 0)
+            filter.select = tableInfo.sqlMap;
+          _doCount (req, res, tableName, filter);
+        }, function(err) {
+          self.akera.error(err, res);
+        });
+    } else {
+      _doCount (req, res, tableName, filter);
+    }
   };
 
   function getNumber(value) {
@@ -333,6 +336,18 @@ function JSDOHandler(akera) {
     res.status(200).json(result);
   }
 
+  function _doCount (req, res, tableName, filter) {
+    self.crudHandler.read(req.broker, tableName, filter).then(function(count) {
+      res.status(200).json({
+        response : {
+          numRecs : count
+        }
+      });
+    }, function(err) {
+      self.akera.error(err, res);
+    });
+  }
+  
   function _doSelect(req, res, tableName, filter) {
     if (!self.asDataset) {
       _getPkFromQueryString(req).then(function(pkMap) {
