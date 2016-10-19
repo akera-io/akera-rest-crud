@@ -48,37 +48,33 @@ var getWhereFilter = function(table, filter) {
 };
 
 var transformData = function(data, sqlMap, back) {
-  if (data && sqlMap && sqlMap.length) {
-    if (data instanceof Array) {
-      data.forEach(function(row) {
-        transformData(row, sqlMap, back);
-      });
-    } else {
-      if (Object.keys(data).length === 1) {
-        // and/or filter
-        for ( var group in data) {
-          if (group === f.operator.and || group === f.operator.or) {
-            transformData(data[group], sqlMap, back);
-            return data;
+  if (!data || !sqlMap || !sqlMap.length)
+    return data;
+
+  if (data instanceof Array) {
+    data.forEach(function(row) {
+      transformData(row, sqlMap, back);
+    });
+  } else {
+    sqlMap.forEach(function(field) {
+      if (field.alias !== undefined) {
+        if (back === true) {
+          if (data[field.name] !== undefined) {
+            data[field.alias] = data[field.name];
+            delete data[field.name];
+          }
+        } else {
+          if (data[field.alias] !== undefined) {
+            data[field.name] = data[field.alias];
+            delete data[field.alias];
           }
         }
       }
-
-      sqlMap.forEach(function(field) {
-        if (field.alias !== undefined) {
-          if (back === true) {
-            if (data[field.name] !== undefined) {
-              data[field.alias] = data[field.name];
-              delete data[field.name];
-            }
-          } else {
-            if (data[field.alias] !== undefined) {
-              data[field.name] = data[field.alias];
-              delete data[field.alias];
-            }
-          }
-        }
-      });
+    });
+    
+    for ( var key in data) {
+      if (typeof data[key] === 'object')
+        transformData(data[key], sqlMap, back);
     }
   }
 
