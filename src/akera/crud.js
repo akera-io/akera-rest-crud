@@ -171,6 +171,7 @@ AkeraCrud.prototype.read = function(broker, table, filter) {
         if (filter.fields)
           qry.fields(filter.fields);
 
+          return filter;
       }
 
       return qry.all();

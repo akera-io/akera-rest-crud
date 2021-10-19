@@ -5,7 +5,7 @@
     "email": "liviu.mihaianu@acorn.ro"
   },
   "homepage": "http://akera.io",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "Akera-web REST data access (CRUD) component",
   "license": {
     "type": "MIT",
@@ -20,17 +20,14 @@
   },
   "main": "index.js",
   "dependencies": {
-    "akera-api": ">=1.0.17",
+    "akera-api": "^1.2.2",
     "async": "^2.0.1",
     "rsvp": "^3.2.1"
   },
-  "bundledDependencies": [
-    "akera-api"
-  ],
   "scripts": {
   	"lint": "jshint ./src",
     "checkStyle": "jscs ./src",
-    "prepublish": "npm test && grunt",
+    "prepublish": "npm run-script pretest && grunt",
     "pretest": "npm run-script lint && npm run-script checkStyle",
     "test": "export NODE_PATH=/usr/local/lib/node_modules && istanbul cover _mocha -- --recursive -R spec test/*-test.js",
     "posttest": "export NODE_PATH=/usr/local/lib/node_modules && istanbul check-coverage"

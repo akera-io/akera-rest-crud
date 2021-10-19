@@ -12,7 +12,7 @@
 , "latedef": false
 , "laxbreak": true
 , "laxcomma": true
-, "maxcomplexity": 15
+, "maxcomplexity": 25
 , "maxparams": 5
 , "maxdepth": 4
 , "maxstatements": 75
